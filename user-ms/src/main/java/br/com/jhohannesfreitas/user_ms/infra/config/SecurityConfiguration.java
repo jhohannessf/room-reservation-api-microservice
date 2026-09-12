@@ -43,7 +43,7 @@ public class SecurityConfiguration {
                             response.setStatus(HttpStatus.FORBIDDEN.value());
                         }))
                 .authorizeHttpRequests(auth -> {
-                            auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/registrar", "/api/v1/auth/login",
+                            auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/registrar", "/api/v1/auth/login", "/api/v1/auth/logout",
                                     "/api/v1/auth/2fa/verify", "/login/oauth2/**", "/oauth2/**").permitAll();
                             auth.anyRequest().authenticated();
                         }
