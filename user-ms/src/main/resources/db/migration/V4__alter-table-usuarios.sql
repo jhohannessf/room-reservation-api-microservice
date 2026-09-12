@@ -1,0 +1,12 @@
+ALTER TABLE usuarios
+ADD COLUMN tipo_a2f VARCHAR(20),
+ADD COLUMN a2f_ativa BOOLEAN;
+
+UPDATE usuarios
+SET usuarios.tipo_a2f = 'DESATIVADA',
+    a2f_ativa = FALSE
+WHERE a2f_ativa IS NULL;
+
+ALTER TABLE usuarios
+MODIFY COLUMN tipo_a2f VARCHAR(20) NOT NULL,
+MODIFY COLUMN a2f_ativa BOOLEAN NOT NULL;

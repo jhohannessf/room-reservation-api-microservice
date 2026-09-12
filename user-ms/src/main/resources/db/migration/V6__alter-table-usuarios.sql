@@ -1,0 +1,2 @@
+ALTER TABLE usuarios
+ADD COLUMN a2f_secret VARCHAR(100);

@@ -1,0 +1,92 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: room-reservation-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - room-reservation-net
+
+  user-ms:
+    build: ./user-ms
+    container_name: user-ms
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/user_ms?createDatabaseIfNotExist=true
+      DATASOURCE_USERNAME: root
+      DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JWT_KEY: ${JWT_KEY}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
+      EMAIL_USERNAME: ${EMAIL_USERNAME}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+    ports:
+      - "8080:8080"
+    networks:
+      - room-reservation-net
+
+  room-ms:
+    build: ./room-ms
+    container_name: room-ms
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/room_ms?createDatabaseIfNotExist=true
+      DATASOURCE_USERNAME: root
+      DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JWT_KEY: ${JWT_KEY}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
+    ports:
+      - "8081:8081"
+    networks:
+      - room-reservation-net
+
+  booking-ms:
+    build: ./booking-ms
+    container_name: booking-ms
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      user-ms:
+        condition: service_started
+      room-ms:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/booking_ms?createDatabaseIfNotExist=true
+      DATASOURCE_USERNAME: root
+      DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JWT_KEY: ${JWT_KEY}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
+      USER_MS_URL: http://user-ms:8080
+      ROOM_MS_URL: http://room-ms:8081
+    ports:
+      - "8082:8082"
+    networks:
+      - room-reservation-net
+
+volumes:
+  mysql_data:
+
+networks:
+  room-reservation-net:
+    driver: bridge
