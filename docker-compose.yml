@@ -18,6 +18,25 @@ services:
     networks:
       - room-reservation-net
 
+    # === RABBITMQ ===
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: room-reservation-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"   # Porta para comunicação AMQP
+      - "15672:15672" # Porta para o Painel de Gerenciamento Web
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - room-reservation-net
+
   user-ms:
     build: ./user-ms
     container_name: user-ms
