@@ -113,6 +113,9 @@ Suporta dois tipos, com o mesmo contrato de resposta (`TipoA2f`: `DESATIVADA`, `
   2. `POST /api/v1/auth/2fa/totp/confirm` confirma o primeiro código gerado pelo app antes de ativar a 2FA de fato.
 
 Depois de ativada, todo login exige uma segunda chamada a `POST /api/v1/auth/2fa/verify` (com e-mail + código) para só então receber o JWT.
+Para A2F por e-mail, o código é enviado pelo SMTP configurado.
+Para TOTP, o código é gerado pelo aplicativo autenticador.
+Somente após a validação do segundo fator o `user-ms` emite o JWT.
 
 ### Autorização (roles e hierarquia)
 
@@ -131,14 +134,15 @@ Depois de ativada, todo login exige uma segunda chamada a `POST /api/v1/auth/2fa
 
 ### `user-ms`
 
-| Método | Rota | Descrição | Acesso |
-|---|---|---|---|
-| POST | `/api/v1/auth/registrar` | Cadastro de usuário | Público |
-| POST | `/api/v1/auth/login` | Login local | Público |
-| POST | `/api/v1/auth/2fa/verify` | Confirma código 2FA (e-mail ou TOTP) e emite o JWT | Público |
-| POST | `/api/v1/auth/2fa/totp/setup` | Gera secret + QR Code para ativar TOTP | Autenticado |
-| POST | `/api/v1/auth/2fa/totp/confirm` | Confirma o primeiro código TOTP e ativa a 2FA | Autenticado |
-| GET | `/oauth2/authorization/google` \| `/github` | Início do login social | Público |
+| Método | Rota | Descrição | Acesso                                          |
+|---|---|---|-------------------------------------------------|
+| POST | `/api/v1/auth/registrar` | Cadastro de usuário | Público                                         |
+| POST | `/api/v1/auth/login` | Login local | Público                                         |
+| POST | `/api/v1/auth/2fa/verify` | Confirma código 2FA (e-mail ou TOTP) e emite o JWT | Público                                         |
+| POST | `/api/v1/auth/2fa/totp/setup` | Gera secret + QR Code para ativar TOTP | Autenticado                                     |
+| POST | `/api/v1/auth/2fa/totp/confirm` | Confirma o primeiro código TOTP e ativa a 2FA | Autenticado                                     |
+| POST | `/api/v1/auth/logout` | Encerra o uso do JWT no cliente | Público                                         |
+| GET | `/oauth2/authorization/google` \| `/github` | Início do login social | Público                                         |
 | GET/POST/PUT/DELETE | `/api/v1/usuarios/**` | CRUD de usuários, perfis e ativação de 2FA por e-mail | Autenticado / dono do recurso / `ADMINISTRADOR` |
 
 ### `room-ms`
@@ -233,6 +237,7 @@ cd booking-ms && ./mvnw spring-boot:run
 - [ ] Service Discovery (Eureka) em vez de URLs fixas nos `@FeignClient`
 - [ ] Circuit breaker (Resilience4j) nas chamadas Feign de `booking-ms`
 - [ ] Centralizar configuração (Spring Cloud Config)
+- [ ] Revogação de JWT
 
 ---
 
