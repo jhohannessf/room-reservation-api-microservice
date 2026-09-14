@@ -18,22 +18,21 @@ services:
     networks:
       - room-reservation-net
 
-    # === RABBITMQ ===
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: room-reservation-rabbitmq
+  server-ms:
+    build: ./server-ms
+    container_name: server-ms
     restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     ports:
-      - "5672:5672"   # Porta para comunicação AMQP
-      - "15672:15672" # Porta para o Painel de Gerenciamento Web
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "8761:8761"
+    networks:
+      - room-reservation-net
+
+  config-server-ms:
+    build: ./config-server-ms
+    container_name: config-server-ms
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
     networks:
       - room-reservation-net
 
@@ -44,7 +43,13 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      server-ms:
+        condition: service_started
+      config-server-ms:
+        condition: service_started
     environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server-ms:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://server-ms:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/user_ms?createDatabaseIfNotExist=true
       DATASOURCE_USERNAME: root
       DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -57,7 +62,7 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
     ports:
-      - "8080:8080"
+      - "8081:8081"
     networks:
       - room-reservation-net
 
@@ -68,14 +73,20 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      server-ms:
+        condition: service_started
+      config-server-ms:
+        condition: service_started
     environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server-ms:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://server-ms:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/room_ms?createDatabaseIfNotExist=true
       DATASOURCE_USERNAME: root
       DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       JWT_KEY: ${JWT_KEY}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
     ports:
-      - "8081:8081"
+      - "8082:8082"
     networks:
       - room-reservation-net
 
@@ -86,20 +97,44 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      server-ms:
+        condition: service_started
+      config-server-ms:
+        condition: service_started
       user-ms:
         condition: service_started
       room-ms:
         condition: service_started
     environment:
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server-ms:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://server-ms:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/booking_ms?createDatabaseIfNotExist=true
       DATASOURCE_USERNAME: root
       DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       JWT_KEY: ${JWT_KEY}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
-      USER_MS_URL: http://user-ms:8080
-      ROOM_MS_URL: http://room-ms:8081
     ports:
-      - "8082:8082"
+      - "8083:8083"
+    networks:
+      - room-reservation-net
+
+  gateway-ms:
+    build: ./gateway-ms
+    container_name: gateway-ms
+    restart: unless-stopped
+    depends_on:
+      server-ms:
+        condition: service_started
+      user-ms:
+        condition: service_started
+      room-ms:
+        condition: service_started
+      booking-ms:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://server-ms:8761/eureka/
+    ports:
+      - "8080:8080"
     networks:
       - room-reservation-net
 

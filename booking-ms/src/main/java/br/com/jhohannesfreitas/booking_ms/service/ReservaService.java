@@ -12,9 +12,11 @@ import br.com.jhohannesfreitas.booking_ms.http.UsuarioClient;
 import br.com.jhohannesfreitas.booking_ms.infra.exception.RegraNegocioException;
 import br.com.jhohannesfreitas.booking_ms.mapper.ReservaMapper;
 import br.com.jhohannesfreitas.booking_ms.repository.ReservaRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -62,6 +64,7 @@ public class ReservaService {
         return ReservaMapper.toDto(buscarReservaPorId(id));
     }
 
+    @Transactional
     public ReservaResponse cadastrar(ReservaRequest reservaRequest, Long usuarioId) {
         // Validar se o usuário AUTENTICADO existe
         UsuarioRequest usuarioRequest = usuarioClient.buscarPorId(usuarioId);
@@ -93,11 +96,15 @@ public class ReservaService {
         // Salva a ENTITY no banco
         Reserva reservaSalva = reservaRepository.save(reserva);
 
+        // Altera o status da sala lá no room-ms para OCUPADA
+        salaClient.alterarStatusSala(salaRequest.id(), StatusSala.OCUPADA);
+
         // Retorna o DTO de resposta
         return  ReservaMapper.toDto(reservaSalva);
 
     }
 
+    @Transactional
     public ReservaResponse atualizar(Long id, ReservaRequest reservaRequest, Long usuarioId) {
         // Verifica se a Reserva existe
         Reserva reserva = buscarReservaPorIdAndUsuarioId(id, usuarioId);
@@ -136,9 +143,11 @@ public class ReservaService {
         return ReservaMapper.toDto(reservaSalva);
     }
 
+    @Transactional
     public void deletar(Long id, Long usuarioId) {
-        buscarReservaPorIdAndUsuarioId(id, usuarioId);
+        Reserva reserva = buscarReservaPorIdAndUsuarioId(id, usuarioId);
         reservaRepository.deleteById(id);
+        salaClient.alterarStatusSala(reserva.getSalaId(), StatusSala.LIVRE);
     }
 
     private Reserva buscarReservaPorId(Long id) {
@@ -222,6 +231,45 @@ public class ReservaService {
         if (quantidade > capacidade) {
             throw new RegraNegocioException("A quantidade de pessoas excede a capacidade máxima da sala.",
                     HttpStatus.CONFLICT);
+        }
+    }
+
+    public void confirmarReservaSemIntegracao(Long id, Long usuarioId) {
+        Reserva reserva = buscarReservaPorIdAndUsuarioId(id, usuarioId);
+
+        reserva.setStatus(StatusReserva.ATIVA);
+        reservaRepository.save(reserva);
+
+        salaClient.alterarStatusSala(reserva.getSalaId(), StatusSala.OCUPADA);
+    }
+
+    public void alterarStatusReserva(Long id, Long usuarioId) {
+        Reserva reserva = buscarReservaPorIdAndUsuarioId(id, usuarioId);
+        reserva.setStatus(StatusReserva.ATIVA_SEM_INTEGRACAO);
+        reservaRepository.save(reserva);
+    }
+
+    // Roda automaticamente a cada 60.000 milissegundos (1 minuto)
+    @Scheduled(fixedDelay = 60000)
+    public void tentarIntegrarSalasPendentes() {
+        // 1. Busca todas as reservas que estão aguardando integração
+        List<Reserva> reservasPendentes = reservaRepository.findByStatus(StatusReserva.ATIVA_SEM_INTEGRACAO);
+        for (Reserva reserva : reservasPendentes) {
+            try {
+                // 2. Tenta fazer a comunicação com a room-ms
+                var sala = salaClient.buscarPorId(reserva.getSalaId());
+                salaClient.alterarStatusSala(reserva.getSalaId(), StatusSala.OCUPADA);
+
+                // 3. Se passou pela linha de cima, significa que a room-ms VOLTOU a funcionar!
+                // Então, atualizamos a reserva para totalmente ATIVA.
+                reserva.setStatus(StatusReserva.ATIVA);
+                reservaRepository.save(reserva);
+                System.out.println("Integração pendente resolvida para a reserva: " + reserva.getId());
+            } catch (Exception e) {
+                // Se der erro, a room-ms AINDA está fora do ar.
+                // O bloco catch impede que o sistema quebre, e ele apenas vai tentar de novo no próximo minuto.
+                System.out.println("Tentativa de integrar reserva " + reserva.getId() + " falhou. room-ms ainda offline.");
+            }
         }
     }
 }

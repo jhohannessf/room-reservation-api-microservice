@@ -1,9 +1,11 @@
 package br.com.jhohannesfreitas.booking_ms.controller;
 
 import br.com.jhohannesfreitas.booking_ms.domain.entity.UserPrincipal;
+import br.com.jhohannesfreitas.booking_ms.domain.enums.StatusSala;
 import br.com.jhohannesfreitas.booking_ms.dto.ReservaRequest;
 import br.com.jhohannesfreitas.booking_ms.dto.ReservaResponse;
 import br.com.jhohannesfreitas.booking_ms.service.ReservaService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -71,4 +73,21 @@ public class ReservaController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
+    @PatchMapping("/{id}")
+    @CircuitBreaker(name = "atualizaSala", fallbackMethod = "salaAtualizadaComIntegracaoPendente")
+    public void confirmarReservaSemIntegracao(@PathVariable Long id, Authentication authentication) {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        Long usuarioId = userPrincipal.getId();
+        reservaService.confirmarReservaSemIntegracao(id, usuarioId);
+    }
+
+    // A assinatura tem que receber os MESMOS parâmetros, mais a Exceção no final.
+    public void salaAtualizadaComIntegracaoPendente(Long id, ReservaRequest reservaRequest, Authentication authentication, Throwable t) {
+        // O Throwable 't' captura o erro (ex: Connection Refused do room-ms)
+        System.out.println("Room-ms fora do ar! Motivo: " + t.getMessage());
+
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        Long usuarioId = userPrincipal.getId();
+        reservaService.alterarStatusReserva(id, usuarioId);
+    }
 }
