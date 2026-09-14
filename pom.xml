@@ -15,5 +15,6 @@
         <module>booking-ms</module>
         <module>gateway-ms</module>
         <module>server-ms</module>
+        <module>config-server-ms</module>
     </modules>
 </project>
