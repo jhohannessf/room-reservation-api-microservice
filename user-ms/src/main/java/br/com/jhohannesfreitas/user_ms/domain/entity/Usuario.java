@@ -36,14 +36,14 @@ public class Usuario implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ProvedorLogin provedorLogin;
+    private ProvedorLogin provedorLogin =  ProvedorLogin.LOCAL;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TipoA2f tipoA2f;
+    private TipoA2f tipoA2f =  TipoA2f.DESATIVADA;
 
     @Column(nullable = false)
-    private Boolean a2fAtiva;
+    private Boolean a2fAtiva = false;
 
     private String a2fSecret;
 
