@@ -71,6 +71,10 @@ Como funciona na prática:
 
 - **`server-ms`** é o Eureka Server: cada um dos outros serviços se registra nele ao subir, e é através dele que se descobrem uns aos outros (em vez de URLs fixas).
 - **`config-server-ms`** centraliza o `application.properties` de `user-ms`, `room-ms` e `booking-ms` — em vez de cada um carregar sua própria configuração local, eles importam de `http://localhost:8888` na inicialização (`spring.config.import=optional:configserver:...`). Os arquivos de configuração reais ficam empacotados no classpath do próprio Config Server, em `config-server-ms/src/main/resources/config-repo/` — uma escolha deliberada para não depender de um caminho absoluto no disco (ver [Roadmap](#roadmap) para o histórico dessa decisão).
+
+  **Por que centralizar configuração?** Antes dele, cada serviço tinha seu próprio `application.properties` completo (URL do banco, chave JWT, credenciais de e-mail etc.), espalhados em arquivos diferentes. Numa arquitetura de microsserviços de verdade, isso vira um problema de escala: imagine ter várias instâncias de `user-ms` rodando e precisar mudar um único valor — sem Config Server, seria necessário alterar e reiniciar cada instância manualmente. Com a configuração centralizada, a mudança é feita em um único lugar (`config-repo/user-ms.properties`), e qualquer instância que reiniciar já busca o valor atualizado — a fonte da verdade da configuração fica desacoplada do deploy de cada serviço.
+
+  Neste projeto ele roda no **modo "native"**, lendo arquivos `.properties` locais (empacotados no próprio jar) em vez de buscar de um repositório Git remoto, que é o modo mais comum em produção — uma simplificação razoável para fins de portfólio, que ainda demonstra o entendimento do conceito de configuração centralizada sem exigir manter um repositório Git separado só para isso.
 - **`gateway-ms`** é o único serviço com porta exposta que faz sentido o cliente conhecer. Ele recebe a requisição, olha o prefixo do path (`/user-ms/**`, `/room-ms/**` ou `/booking-ms/**`), remove esse prefixo (`StripPrefix=1`) e encaminha para uma instância saudável do serviço correspondente, resolvida dinamicamente via Eureka (`lb://user-ms`, por exemplo).
 - **`booking-ms`** continua sendo o orquestrador da regra de negócio: antes de confirmar uma reserva, ele consulta `user-ms` e `room-ms` via **Feign Clients**, resolvidos via Eureka. Essas chamadas são protegidas por **Circuit Breaker** (ver seção [Resiliência](#resiliência)).
 - Assim como antes, cada serviço valida o JWT **localmente**, sem precisar chamar `user-ms` a cada requisição — os serviços compartilham a mesma chave secreta (`jwt.key`).
@@ -251,7 +255,9 @@ Depois de tudo no ar, todas as chamadas do cliente são feitas em `http://localh
 
 ### Opção B — Rodando cada serviço manualmente
 
-Como os serviços dependem do Eureka para se descobrirem e do Config Server para sua configuração, a ordem de subida importa:
+Como os serviços dependem do Eureka para se descobrirem e do Config Server para sua configuração, a ordem de subida importa. Cada linha abaixo é um terminal separado.
+
+**Linux, macOS ou Git Bash:**
 
 ```bash
 # Terminal 1 — Eureka Server
@@ -267,6 +273,35 @@ cd booking-ms && ./mvnw spring-boot:run
 
 # Terminal 6 — Gateway (por último)
 cd gateway-ms && ./mvnw spring-boot:run
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Terminal 1 — Eureka Server
+cd server-ms; .\mvnw.cmd spring-boot:run
+
+# Terminal 2 — Config Server
+cd config-server-ms; .\mvnw.cmd spring-boot:run
+
+# Terminal 3, 4, 5 — serviços de negócio (em qualquer ordem)
+cd user-ms; .\mvnw.cmd spring-boot:run
+cd room-ms; .\mvnw.cmd spring-boot:run
+cd booking-ms; .\mvnw.cmd spring-boot:run
+
+# Terminal 6 — Gateway (por último)
+cd gateway-ms; .\mvnw.cmd spring-boot:run
+```
+
+**Windows (CMD):**
+
+```cmd
+cd server-ms && mvnw.cmd spring-boot:run
+cd config-server-ms && mvnw.cmd spring-boot:run
+cd user-ms && mvnw.cmd spring-boot:run
+cd room-ms && mvnw.cmd spring-boot:run
+cd booking-ms && mvnw.cmd spring-boot:run
+cd gateway-ms && mvnw.cmd spring-boot:run
 ```
 
 ### Variáveis de ambiente
