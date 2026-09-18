@@ -43,9 +43,11 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> {
                             auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
 
+                            auth.requestMatchers(HttpMethod.GET, "/api/v1/salas/**").permitAll();
                             auth.requestMatchers(HttpMethod.POST, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
-                            auth.requestMatchers(HttpMethod.PATCH, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
                             auth.requestMatchers(HttpMethod.DELETE, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
+                            auth.requestMatchers(HttpMethod.PATCH, "/api/v1/salas/alterar-status/**").authenticated();
+                            auth.requestMatchers(HttpMethod.PATCH, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
 
                             auth.anyRequest().authenticated();
                         }
