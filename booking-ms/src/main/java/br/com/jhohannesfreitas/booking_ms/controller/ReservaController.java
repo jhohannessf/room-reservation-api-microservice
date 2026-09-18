@@ -1,12 +1,12 @@
 package br.com.jhohannesfreitas.booking_ms.controller;
 
 import br.com.jhohannesfreitas.booking_ms.domain.entity.UserPrincipal;
-import br.com.jhohannesfreitas.booking_ms.domain.enums.StatusSala;
 import br.com.jhohannesfreitas.booking_ms.dto.ReservaRequest;
 import br.com.jhohannesfreitas.booking_ms.dto.ReservaResponse;
 import br.com.jhohannesfreitas.booking_ms.service.ReservaService;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -82,12 +82,18 @@ public class ReservaController {
     }
 
     // A assinatura tem que receber os MESMOS parâmetros, mais a Exceção no final.
-    public void salaAtualizadaComIntegracaoPendente(Long id, ReservaRequest reservaRequest, Authentication authentication, Throwable t) {
-        // O Throwable 't' captura o erro (ex: Connection Refused do room-ms)
+    public void salaAtualizadaComIntegracaoPendente(Long id, Authentication authentication, Throwable t) {
+        // O Throwable 't' captura o erro
         System.out.println("Room-ms fora do ar! Motivo: " + t.getMessage());
 
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        assert userPrincipal != null;
         Long usuarioId = userPrincipal.getId();
         reservaService.alterarStatusReserva(id, usuarioId);
+    }
+
+    @GetMapping("/porta")
+    public String retornarPorta(@Value("${local.server.port}") String porta) {
+        return String.format("Requisição respondida pela instância executando na porta: %s", porta);
     }
 }

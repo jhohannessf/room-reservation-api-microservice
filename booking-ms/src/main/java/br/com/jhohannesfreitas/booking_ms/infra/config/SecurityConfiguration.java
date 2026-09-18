@@ -42,6 +42,7 @@ public class SecurityConfiguration {
                         }))
                 .authorizeHttpRequests(auth -> {
                             auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
+                            auth.requestMatchers("/actuator/**").permitAll();
 
                             auth.requestMatchers(HttpMethod.POST, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
                             auth.requestMatchers(HttpMethod.PATCH, "/api/v1/salas/**").hasRole("ADMINISTRADOR");

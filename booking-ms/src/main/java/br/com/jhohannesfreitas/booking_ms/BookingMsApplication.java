@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableFeignClients
-@EnableScheduling // Ativar agendamento de tarefas
+//@EnableScheduling // Ativar agendamento de tarefas
 public class BookingMsApplication {
 
 	public static void main(String[] args) {
