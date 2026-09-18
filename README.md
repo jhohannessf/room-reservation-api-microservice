@@ -22,12 +22,14 @@ O sistema é composto por 6 aplicações Spring Boot: três microsserviços de n
 
 | Serviço | Responsabilidade | Porta |
 |---|---|---|
-| `server-ms` | Eureka Server — registro e descoberta de serviços | `8761` |
-| `config-server-ms` | Spring Cloud Config Server — configuração centralizada dos serviços de negócio | `8888` |
-| `gateway-ms` | API Gateway — ponto único de entrada, roteamento dinâmico via Eureka | `8080` |
-| `user-ms` | Cadastro de usuários, autenticação, login social, 2FA | `8081` |
-| `room-ms` | Cadastro e controle de status das salas | `8082` |
-| `booking-ms` | Regras de reserva, orquestração via Feign, resiliência com Circuit Breaker | `8083` |
+| `server-ms` | Eureka Server — registro e descoberta de serviços | `8761` (fixa) |
+| `config-server-ms` | Spring Cloud Config Server — configuração centralizada dos serviços de negócio | `8888` (fixa) |
+| `gateway-ms` | API Gateway — ponto único de entrada, roteamento dinâmico via Eureka | `8080` (fixa) |
+| `user-ms` | Cadastro de usuários, autenticação, login social, 2FA | dinâmica (`server.port=0`) |
+| `room-ms` | Cadastro e controle de status das salas | dinâmica (`server.port=0`) |
+| `booking-ms` | Regras de reserva, orquestração via Feign, resiliência com Circuit Breaker | dinâmica (`server.port=0`) |
+
+> Os três serviços de negócio usam `server.port=0`: o Spring Boot pede uma porta livre ao sistema operacional a cada subida, e cada instância se registra no Eureka com um `instance-id` único (`${spring.application.name}:${random.int}`). Isso permite subir **mais de uma instância do mesmo serviço** (ex: dois `room-ms` em paralelo) sem conflito de porta, com o `gateway-ms` e os `@FeignClient` fazendo *load balancing* entre elas via Eureka — o cliente nunca precisa saber a porta real, só acessa tudo por `http://localhost:8080/<nome-do-serviço>/...`.
 
 ```mermaid
 flowchart TB
@@ -78,6 +80,7 @@ Como funciona na prática:
 - **`gateway-ms`** é o único serviço com porta exposta que faz sentido o cliente conhecer. Ele recebe a requisição, olha o prefixo do path (`/user-ms/**`, `/room-ms/**` ou `/booking-ms/**`), remove esse prefixo (`StripPrefix=1`) e encaminha para uma instância saudável do serviço correspondente, resolvida dinamicamente via Eureka (`lb://user-ms`, por exemplo).
 - **`booking-ms`** continua sendo o orquestrador da regra de negócio: antes de confirmar uma reserva, ele consulta `user-ms` e `room-ms` via **Feign Clients**, resolvidos via Eureka. Essas chamadas são protegidas por **Circuit Breaker** (ver seção [Resiliência](#resiliência)).
 - Assim como antes, cada serviço valida o JWT **localmente**, sem precisar chamar `user-ms` a cada requisição — os serviços compartilham a mesma chave secreta (`jwt.key`).
+- Como `user-ms`, `room-ms` e `booking-ms` rodam em porta dinâmica, o endpoint `GET /api/v1/reservas/porta` existe justamente para comprovar o *load balancing* na prática: ele devolve a porta local (`${local.server.port}`) da instância de `booking-ms` que respondeu — útil para chamar repetidamente e ver a porta mudar entre instâncias diferentes.
 
 ## Stack técnica
 
@@ -174,12 +177,15 @@ Depois de ativada, todo login exige uma segunda chamada a `POST /api/v1/auth/2fa
 
 ## Resiliência
 
-`booking-ms` depende de `room-ms` para validar e atualizar o status de uma sala a cada reserva — se `room-ms` cair, isso não pode travar o sistema inteiro. Por isso, essa chamada é protegida com **Resilience4j Circuit Breaker**, com um fluxo de degradação controlada em vez de simplesmente falhar:
+`booking-ms` depende de `room-ms` para validar e atualizar o status de uma sala a cada reserva — se `room-ms` cair, isso não pode travar o sistema inteiro. Por isso, essa chamada é protegida com **Resilience4j Circuit Breaker** (instância `atualizaSala`), com um fluxo de degradação controlada em vez de simplesmente falhar. A proteção existe em dois pontos:
 
-1. Ao confirmar uma reserva (`PATCH /api/v1/reservas/{id}`), o `booking-ms` tenta atualizar o status da sala no `room-ms` via Feign.
-2. Se o `room-ms` estiver indisponível, o Circuit Breaker aciona o **fallback** (`salaAtualizadaComIntegracaoPendente`): a reserva não é perdida nem rejeitada — ela é marcada com o status **`ATIVA_SEM_INTEGRACAO`**, indicando que a reserva existe mas a sala ainda não foi sincronizada.
-3. Um job agendado (`@Scheduled(fixedDelay = 60000)`, rodando a cada 1 minuto) varre periodicamente as reservas nesse estado e tenta reconciliar: se `room-ms` já voltou, a reserva é promovida para `ATIVA` e a sala é marcada como `OCUPADA`; se ainda estiver fora do ar, tenta de novo no próximo ciclo.
-4. Todas as chamadas Feign de `booking-ms` também têm o circuit breaker do próprio OpenFeign habilitado globalmente (`spring.cloud.openfeign.circuitbreaker.enabled=true`), como uma camada adicional de proteção.
+1. **Ao criar a reserva** (`POST /api/v1/reservas`), o `booking-ms` tenta marcar a sala como `OCUPADA` no `room-ms` através de `SalaIntegracaoService.marcarSalaOcupada`, anotado com `@CircuitBreaker(name = "atualizaSala", fallbackMethod = "marcarSalaOcupadaFallback")`. Se `room-ms` estiver indisponível, o fallback retorna `false` e a reserva é salva com status **`ATIVA_SEM_INTEGRACAO`** em vez de ser perdida ou rejeitada.
+2. **Ao confirmar uma reserva pendente** (`PATCH /api/v1/reservas/{id}`), a mesma anotação `@CircuitBreaker(name = "atualizaSala", ...)` fica diretamente no método do `ReservaController`: se `room-ms` continuar fora do ar, o fallback (`salaAtualizadaComIntegracaoPendente`) mantém a reserva marcada como pendente; se já tiver voltado, a reserva é promovida para `ATIVA`.
+3. Um job agendado (`@Scheduled(fixedDelay = 60000)`, rodando a cada 1 minuto) varre periodicamente as reservas em `ATIVA_SEM_INTEGRACAO` e tenta reconciliar: se `room-ms` já voltou, a reserva é promovida para `ATIVA` e a sala é marcada como `OCUPADA`; se ainda estiver fora do ar, tenta de novo no próximo ciclo.
+
+**Por que o Circuit Breaker precisou de uma classe separada (`SalaIntegracaoService`)?** O Resilience4j (assim como qualquer AOP do Spring) funciona interceptando a chamada a um método anotado *a partir de outro bean*. Se a chamada anotada estivesse dentro do próprio `ReservaService` e fosse invocada como `this.marcarSalaOcupada(...)`, a anotação seria **silenciosamente ignorada** — o Spring nunca passa pelo proxy nesse caso de auto-invocação. Por isso essa chamada específica foi extraída para um bean próprio, injetado no `ReservaService`. No `ReservaController`, isso não é necessário porque o método já é chamado de fora (pelo Spring MVC via HTTP), então o proxy entra em ação normalmente.
+
+Como consequência dessa separação por método, o circuit breaker automático do OpenFeign foi **desligado** (`spring.cloud.openfeign.circuitbreaker.enabled=false`): ele protegeria *todas* as chamadas Feign indiscriminadamente — inclusive as de validação (`buscarPorId` de sala e usuário), que precisam propagar o erro real (404, 403 etc.) em vez de cair num fallback genérico. Manter o Resilience4j só nos métodos anotados explicitamente dá controle fino sobre onde a degradação é aceitável.
 
 Esse padrão — aceitar uma escrita em estado degradado e reconciliar depois — é uma forma simples de **consistência eventual**, e é um bom talking point de entrevista: mostra entendimento de que, em sistemas distribuídos, "a chamada falhou" nem sempre deveria significar "a operação inteira falhou".
 
@@ -197,6 +203,7 @@ Todas as rotas abaixo passam pelo `gateway-ms` (porta `8080`), prefixadas pelo n
 | POST | `/api/v1/auth/2fa/totp/setup` | Gera secret + QR Code para ativar TOTP | Autenticado |
 | POST | `/api/v1/auth/2fa/totp/confirm` | Confirma o primeiro código TOTP e ativa a 2FA | Autenticado |
 | GET | `/oauth2/authorization/google` \| `/github` | Início do login social | Público |
+| POST | `/api/v1/auth/logout` | Logout stateless (no-op — sem sessão para invalidar no servidor; a invalidação real é o cliente descartar o JWT) | Público |
 | GET/POST/PUT/DELETE | `/api/v1/usuarios/**` | CRUD de usuários, perfis e ativação de 2FA por e-mail | Autenticado / dono do recurso / `ADMINISTRADOR` |
 
 ### `room-ms` (prefixo `/room-ms`)
@@ -218,6 +225,7 @@ Todas as rotas abaixo passam pelo `gateway-ms` (porta `8080`), prefixadas pelo n
 | PUT | `/api/v1/reservas/{id}` | Atualiza reserva (apenas o dono) | Autenticado |
 | DELETE | `/api/v1/reservas/{id}` | Cancela reserva (apenas o dono) | Autenticado |
 | PATCH | `/api/v1/reservas/{id}` | Confirma reserva; se `room-ms` estiver fora do ar, aciona o Circuit Breaker e marca como `ATIVA_SEM_INTEGRACAO` | Autenticado |
+| GET | `/api/v1/reservas/porta` | Retorna a porta local da instância que respondeu — usado para demonstrar o *load balancing* entre múltiplas instâncias | Público |
 
 ### Painéis
 
@@ -341,7 +349,10 @@ JWT_EXPIRATION=900000
 - [x] API Gateway (Spring Cloud Gateway) como ponto único de entrada
 - [x] Centralizar configuração (Spring Cloud Config), com `search-locations` portável via classpath (em vez de caminho absoluto)
 - [x] Circuit breaker (Resilience4j) nas chamadas Feign de `booking-ms`, com job de reconciliação
-- [ ] Revisar o `SalaClient.alterarStatusSala` — hoje chama o PUT genérico de atualização de sala (`ADMINISTRADOR`-only) em vez do PATCH de status; confirmar se é esse o comportamento esperado
+- [x] `SalaClient.alterarStatusSala` corrigido — hoje já chama o PATCH de status (`/alterar-status/{id}`), e não mais o PUT genérico
+- [x] Corrigido o bug do Circuit Breaker não disparar na criação de reserva: a chamada foi movida para um bean dedicado (`SalaIntegracaoService`), evitando o problema de auto-invocação do proxy do Spring AOP
+- [x] Portas dinâmicas (`server.port=0`) em `user-ms`, `room-ms` e `booking-ms`, permitindo múltiplas instâncias do mesmo serviço com *load balancing* via Eureka/Feign/Gateway
+- [ ] Atualizar o `docker-compose.yml`: os mapeamentos fixos `8081:8081`, `8082:8082` e `8083:8083` de `user-ms`/`room-ms`/`booking-ms` ficaram desatualizados desde que esses serviços passaram a usar `server.port=0` — o acesso a eles já é só via `gateway-ms` (`8080`), então esses mapeamentos podem ser removidos
 - [ ] Integrar RabbitMQ ao código (hoje só provisionado no `docker-compose.yml`, sem uso real ainda) — candidato natural: notificações assíncronas de reserva confirmada/cancelada, ou fila para o próprio fluxo de reconciliação
 - [ ] Testes de unidade e integração (JUnit 5 + Mockito) para os seis serviços
 - [ ] Healthchecks via Spring Boot Actuator, para o `docker-compose.yml` poder usar `service_healthy` em vez de `service_started` nas dependências entre os microsserviços
