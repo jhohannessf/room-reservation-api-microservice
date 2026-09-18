@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 
 // Classe não necessária, a authenticação via google e github é feita direto pelo navegador
+// Criei apenas pra salvar os endpoints e entender.
 
 @RestController
 @RequestMapping("/oauth2/authorization")
