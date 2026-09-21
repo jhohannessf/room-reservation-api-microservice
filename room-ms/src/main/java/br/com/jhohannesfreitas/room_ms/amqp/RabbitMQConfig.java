@@ -37,6 +37,15 @@ public class RabbitMQConfig {
         //return new Queue("reserva.detalhes-sala", false);
     }
 
+    // Fila sala
+    @Bean
+    public Queue filaDetalhesSalaStatus() {
+        return QueueBuilder
+                .nonDurable("reserva.detalhes-status-sala")
+                .deadLetterExchange("reserva.dlx")
+                .build();
+    }
+
     // Dead Letter Queue
     @Bean
     public Queue filaDlqDetalhesReserva() {
@@ -46,7 +55,7 @@ public class RabbitMQConfig {
     // Exchange
     @Bean
     public FanoutExchange fanoutExchange() {
-        return new FanoutExchange("reserva.ex");
+        return new FanoutExchange("reserva.fanout.ex");
         //return ExchangeBuilder.fanoutExchange("reserva.ex").build();
     }
 
@@ -56,10 +65,26 @@ public class RabbitMQConfig {
         return new FanoutExchange("reserva.dlx");
     }
 
+    @Bean
+    public DirectExchange directExchange() {
+        return new DirectExchange("reserva.direct.ex");
+    }
+
     // Binding
     @Bean
     public Binding bindingReserva() {
-        return BindingBuilder.bind(filaDetalhesReserva()).to(fanoutExchange());
+        return BindingBuilder
+                .bind(filaDetalhesReserva())
+                .to(fanoutExchange());
+    }
+
+    // Binding sala
+    @Bean
+    public Binding bindingSala() {
+        return BindingBuilder
+                .bind(filaDetalhesSalaStatus())
+                .to(directExchange())
+                .with("reserva.detalhes-status-sala");
     }
 
     // Binding Dead Letter

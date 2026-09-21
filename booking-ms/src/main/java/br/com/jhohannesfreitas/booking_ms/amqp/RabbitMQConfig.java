@@ -25,7 +25,7 @@ public class RabbitMQConfig {
     // Criando Exchange
     @Bean
     public FanoutExchange fanoutExchange() {
-        return new FanoutExchange("reserva.ex");
+        return new FanoutExchange("reserva.fanout.ex");
     }
 
     // Necessário para conseguir fazer alterações no painel admin

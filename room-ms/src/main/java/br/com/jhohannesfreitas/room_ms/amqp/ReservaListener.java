@@ -1,8 +1,11 @@
 package br.com.jhohannesfreitas.room_ms.amqp;
 
+import br.com.jhohannesfreitas.room_ms.domain.enums.StatusSala;
 import br.com.jhohannesfreitas.room_ms.dto.ReservaRequest;
+import br.com.jhohannesfreitas.room_ms.infra.exception.RegraNegocioException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -11,6 +14,11 @@ public class ReservaListener {
     // Método que recebe/consume as mensagens de Reserva via RabbitMQ
     @RabbitListener(queues = "reserva.detalhes-sala")
     public void recebeMensagem(ReservaRequest reservaRequest) {
+        // Apenas pra simular a Dead Letter Queue
+//        if (reservaRequest.quantidadePessoas() <= 1)
+//            throw new RegraNegocioException("Não faz sentido a quantidade de pessoas ser menor ou igual a 1.",
+//                    HttpStatus.BAD_REQUEST);
+
         String mensagem = """
                 Número da sala: %s
                 Data: %s
@@ -23,6 +31,14 @@ public class ReservaListener {
                 reservaRequest.horaFinal(),
                 reservaRequest.quantidadePessoas());
 
+        System.out.println("Recebendo Mensagem: \n" + mensagem);
+    }
+
+    @RabbitListener(queues = "reserva.detalhes-status-sala")
+    public void recebeMensagemAlteracaoStatus(StatusSala statusSala) {
+        String  mensagem = """
+                Status da sala: %s
+        """.formatted(statusSala);
         System.out.println("Recebendo Mensagem: \n" + mensagem);
     }
 }

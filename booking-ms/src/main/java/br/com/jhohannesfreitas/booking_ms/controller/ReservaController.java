@@ -59,14 +59,6 @@ public class ReservaController {
     public ResponseEntity<ReservaResponse> cadastrar(@RequestBody @Valid ReservaRequest reservaRequest, Authentication authentication) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         Long usuarioId = userPrincipal.getId();
-
-        // Enviar/Publicar mensagens para o RabbitMQ
-        //Message message = new Message(("Crie uma reserva para a sala de id: " + reservaRequest.salaId()).getBytes());
-        //rabbitTemplate.send("reserva.concluida", message);
-
-        // Enviar/Publicar Json do DTO para o RabbitMQ
-        rabbitTemplate.convertAndSend("reserva.ex","", reservaRequest); // Exchange Fanout não precisa de routingKey
-
         return ResponseEntity.status(HttpStatus.CREATED).body(reservaService.cadastrar(reservaRequest, usuarioId));
     }
 

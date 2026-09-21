@@ -10,6 +10,7 @@ import br.com.jhohannesfreitas.booking_ms.infra.exception.RegraNegocioException;
 import br.com.jhohannesfreitas.booking_ms.mapper.ReservaMapper;
 import br.com.jhohannesfreitas.booking_ms.repository.ReservaRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -27,15 +28,17 @@ public class ReservaService {
     private final UsuarioClient usuarioClient;
     private final SalaClient salaClient;
     private final SalaIntegracaoService salaIntegracaoService;
+    private final RabbitTemplate rabbitTemplate;
 
     public ReservaService(ReservaRepository reservaRepository,
                           UsuarioClient usuarioClient,
                           SalaClient salaClient,
-                          SalaIntegracaoService salaIntegracaoService) {
+                          SalaIntegracaoService salaIntegracaoService, RabbitTemplate rabbitTemplate) {
         this.reservaRepository = reservaRepository;
         this.usuarioClient = usuarioClient;
         this.salaClient = salaClient;
         this.salaIntegracaoService = salaIntegracaoService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public List<ReservaResponse> listar() {
@@ -84,6 +87,13 @@ public class ReservaService {
             reservaSalva.setStatus(StatusReserva.ATIVA_SEM_INTEGRACAO);
             reservaRepository.save(reservaSalva);
         }
+
+        // Enviar/Publicar mensagens para o RabbitMQ
+        //Message message = new Message(("Crie uma reserva para a sala de id: " + reservaRequest.salaId()).getBytes());
+        //rabbitTemplate.send("reserva.concluida", message);
+
+        // Enviar/Publicar Json do DTO para o RabbitMQ
+        rabbitTemplate.convertAndSend("reserva.fanout.ex","", reservaRequest); // Exchange Fanout não precisa de routingKey
 
         return ReservaMapper.toDto(reservaSalva);
     }
@@ -150,6 +160,7 @@ public class ReservaService {
         reservaRepository.save(reserva);
         salaClient.alterarStatusSala(reserva.getSalaId(),
                 new StatusSalaRequest(StatusSala.OCUPADA));
+        rabbitTemplate.convertAndSend("reserva.direct.ex", "reserva.detalhes-status-sala", StatusSala.OCUPADA);
     }
 
     public void alterarStatusReserva(Long id, Long usuarioId) {
