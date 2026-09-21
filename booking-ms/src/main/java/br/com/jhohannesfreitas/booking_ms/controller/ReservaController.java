@@ -3,9 +3,12 @@ package br.com.jhohannesfreitas.booking_ms.controller;
 import br.com.jhohannesfreitas.booking_ms.domain.entity.UserPrincipal;
 import br.com.jhohannesfreitas.booking_ms.dto.ReservaRequest;
 import br.com.jhohannesfreitas.booking_ms.dto.ReservaResponse;
+import br.com.jhohannesfreitas.booking_ms.mapper.ReservaMapper;
 import br.com.jhohannesfreitas.booking_ms.service.ReservaService;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import jakarta.validation.Valid;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,9 +26,11 @@ import java.util.List;
 public class ReservaController {
 
     private final ReservaService reservaService;
+    private final RabbitTemplate rabbitTemplate;
 
-    public ReservaController(ReservaService reservaService, ReservaService reservaService1) {
+    public ReservaController(ReservaService reservaService, ReservaService reservaService1, RabbitTemplate rabbitTemplate) {
         this.reservaService = reservaService1;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @GetMapping
@@ -54,6 +59,14 @@ public class ReservaController {
     public ResponseEntity<ReservaResponse> cadastrar(@RequestBody @Valid ReservaRequest reservaRequest, Authentication authentication) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         Long usuarioId = userPrincipal.getId();
+
+        // Enviar/Publicar mensagens para o RabbitMQ
+        //Message message = new Message(("Crie uma reserva para a sala de id: " + reservaRequest.salaId()).getBytes());
+        //rabbitTemplate.send("reserva.concluida", message);
+
+        // Enviar/Publicar Json do DTO para o RabbitMQ
+        rabbitTemplate.convertAndSend("reserva.ex","", reservaRequest); // Exchange Fanout não precisa de routingKey
+
         return ResponseEntity.status(HttpStatus.CREATED).body(reservaService.cadastrar(reservaRequest, usuarioId));
     }
 
@@ -92,6 +105,7 @@ public class ReservaController {
         reservaService.alterarStatusReserva(id, usuarioId);
     }
 
+    // Teste load balance
     @GetMapping("/porta")
     public String retornarPorta(@Value("${local.server.port}") String porta) {
         return String.format("Requisição respondida pela instância executando na porta: %s", porta);
