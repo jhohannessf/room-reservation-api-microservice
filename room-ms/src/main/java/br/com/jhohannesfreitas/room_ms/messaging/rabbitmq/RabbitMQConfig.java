@@ -1,4 +1,4 @@
-package br.com.jhohannesfreitas.room_ms.amqp;
+package br.com.jhohannesfreitas.room_ms.messaging.rabbitmq;
 
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;

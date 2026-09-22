@@ -14,6 +14,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -29,16 +30,18 @@ public class ReservaService {
     private final SalaClient salaClient;
     private final SalaIntegracaoService salaIntegracaoService;
     private final RabbitTemplate rabbitTemplate;
+    private final KafkaTemplate<String, ReservaRequest> kafkaTemplate;
 
     public ReservaService(ReservaRepository reservaRepository,
                           UsuarioClient usuarioClient,
                           SalaClient salaClient,
-                          SalaIntegracaoService salaIntegracaoService, RabbitTemplate rabbitTemplate) {
+                          SalaIntegracaoService salaIntegracaoService, RabbitTemplate rabbitTemplate, KafkaTemplate kafkaTemplate) {
         this.reservaRepository = reservaRepository;
         this.usuarioClient = usuarioClient;
         this.salaClient = salaClient;
         this.salaIntegracaoService = salaIntegracaoService;
         this.rabbitTemplate = rabbitTemplate;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     public List<ReservaResponse> listar() {
@@ -93,7 +96,10 @@ public class ReservaService {
         //rabbitTemplate.send("reserva.concluida", message);
 
         // Enviar/Publicar Json do DTO para o RabbitMQ
-        rabbitTemplate.convertAndSend("reserva.fanout.ex","", reservaRequest); // Exchange Fanout não precisa de routingKey
+        //rabbitTemplate.convertAndSend("reserva.fanout.ex","", reservaRequest); // Exchange Fanout não precisa de routingKey
+
+        // Enviar/Publicar Json do DTO para o Kafka
+        kafkaTemplate.send("booking-created", reservaRequest);
 
         return ReservaMapper.toDto(reservaSalva);
     }

@@ -1,4 +1,4 @@
-package br.com.jhohannesfreitas.booking_ms.amqp;
+package br.com.jhohannesfreitas.booking_ms.messaging.rabbitmq;
 
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;

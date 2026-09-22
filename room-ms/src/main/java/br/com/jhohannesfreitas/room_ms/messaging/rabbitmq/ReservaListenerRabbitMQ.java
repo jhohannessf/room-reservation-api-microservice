@@ -1,15 +1,12 @@
-package br.com.jhohannesfreitas.room_ms.amqp;
+package br.com.jhohannesfreitas.room_ms.messaging.rabbitmq;
 
 import br.com.jhohannesfreitas.room_ms.domain.enums.StatusSala;
 import br.com.jhohannesfreitas.room_ms.dto.ReservaRequest;
-import br.com.jhohannesfreitas.room_ms.infra.exception.RegraNegocioException;
-import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ReservaListener {
+public class ReservaListenerRabbitMQ {
 
     // Método que recebe/consume as mensagens de Reserva via RabbitMQ
     @RabbitListener(queues = "reserva.detalhes-sala")

@@ -18,6 +18,69 @@ services:
     networks:
       - room-reservation-net
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"   # protocolo AMQP (usado pela aplicação)
+      - "15672:15672" # painel de gerenciamento (http://localhost:15672)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - room-reservation-net
+
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: kafka
+    restart: unless-stopped
+    environment:
+      # Modo KRaft (sem Zookeeper): o broker também atua como controller
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      CLUSTER_ID: "Mk3OEVBNTcwNTJENDM2Qk"
+    ports:
+      - "9092:9092"   # acesso de dentro da rede Docker (usado pelos microsserviços)
+      - "29092:29092" # acesso a partir do host (ex: um cliente Kafka rodando no Windows)
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    networks:
+      - room-reservation-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: kafka-ui
+    restart: unless-stopped
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8085:8080" # painel visual do Kafka (http://localhost:8085) — equivalente ao management do RabbitMQ
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - room-reservation-net
+
   server-ms:
     build: ./server-ms
     container_name: server-ms
@@ -61,8 +124,8 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-    ports:
-      - "8081:8081"
+    # user-ms roda em porta dinâmica (server.port=0) e só é acessado via gateway-ms (:8080),
+    # por isso não expõe porta própria para o host.
     networks:
       - room-reservation-net
 
@@ -77,6 +140,10 @@ services:
         condition: service_started
       config-server-ms:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server-ms:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://server-ms:8761/eureka/
@@ -85,8 +152,12 @@ services:
       DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       JWT_KEY: ${JWT_KEY}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
-    ports:
-      - "8082:8082"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    # room-ms roda em porta dinâmica (server.port=0) e só é acessado via gateway-ms (:8080),
+    # por isso não expõe porta própria para o host.
     networks:
       - room-reservation-net
 
@@ -105,6 +176,10 @@ services:
         condition: service_started
       room-ms:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server-ms:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://server-ms:8761/eureka/
@@ -113,8 +188,12 @@ services:
       DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       JWT_KEY: ${JWT_KEY}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
-    ports:
-      - "8083:8083"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    # booking-ms roda em porta dinâmica (server.port=0) e só é acessado via gateway-ms (:8080),
+    # por isso não expõe porta própria para o host.
     networks:
       - room-reservation-net
 
