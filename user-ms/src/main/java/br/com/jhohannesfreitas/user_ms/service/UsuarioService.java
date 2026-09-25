@@ -47,7 +47,7 @@ public class UsuarioService {
 
     public UsuarioResponse buscarUsuarioPorId(Long id) {
         return usuarioRepository.findById(id).map(UsuarioMapper::toDto)
-                .orElseThrow(() -> new RegraNegocioException("Usuário com id " + id + " não encontrado",
+                .orElseThrow(() -> new RegraNegocioException("Usuário com id " + id + " não encontrado.",
                         HttpStatus.NOT_FOUND));
     }
 
@@ -130,7 +130,7 @@ public class UsuarioService {
 
         // Valida se o usuário já não possui o perfil
         if (usuario.getPerfis().contains(perfil)) {
-            throw new RegraNegocioException("O usuário já possui este perfil",
+            throw new RegraNegocioException("O usuário já possui este perfil.",
                     HttpStatus.CONFLICT);
         }
 
@@ -157,8 +157,16 @@ public class UsuarioService {
         return UsuarioMapper.toDto(usuarioRepository.save(usuario));
     }
 
+    public void ativarA2f(Long id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RegraNegocioException("Usuário com id " + id + " não encontrado.",
+                        HttpStatus.NOT_FOUND));
 
+        usuario.AtivarA2f();
 
+        usuarioRepository.save(usuario);
+    }
+    
     private Usuario buscarPorId(Long id) {
         return usuarioRepository.findById(id)
                 .orElseThrow(() -> new RegraNegocioException("Usuário com id " + id + " não encontrado.",
@@ -172,13 +180,5 @@ public class UsuarioService {
         }
     }
 
-    public void ativarA2f(Long id) {
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RegraNegocioException("Usuário com id " + id + " não encontrado.",
-                HttpStatus.NOT_FOUND));
 
-        usuario.AtivarA2f();
-
-        usuarioRepository.save(usuario);
-    }
 }
