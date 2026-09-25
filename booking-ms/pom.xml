@@ -101,7 +101,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-aspectj</artifactId>
 		</dependency>
-
 		<!-- ============================================================ -->
 		<!-- SEGURANÇA (Spring Security + JWT)                            -->
 		<!-- ============================================================ -->
@@ -132,7 +131,6 @@
 			<version>4.6.0</version>
 			<scope>compile</scope>
 		</dependency>
-
 		<!-- ============================================================ -->
 		<!-- OBSERVABILIDADE (expõe /actuator/health, /actuator/circuit-  -->
 		<!-- breakers etc. — usado para acompanhar o estado do CB)        -->
@@ -141,7 +139,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
-
 		<!-- ============================================================ -->
 		<!-- FERRAMENTAS DE DESENVOLVIMENTO                               -->
 		<!-- ============================================================ -->
@@ -170,7 +167,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-kafka</artifactId>
 		</dependency>
-
 		<!-- ============================================================ -->
 		<!-- TESTES                                                       -->
 		<!-- ============================================================ -->
@@ -199,9 +195,33 @@
 			<artifactId>spring-boot-starter-kafka-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-
+		<!-- Testcontainers -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-mysql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-rabbitmq</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-kafka</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
-
 	<!-- Importa o BOM do Spring Cloud para gerenciar as versões dos
 	     starters org.springframework.cloud:* declarados acima. -->
 	<dependencyManagement>

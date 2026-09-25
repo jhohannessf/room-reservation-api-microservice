@@ -1,6 +1,8 @@
 package br.com.jhohannesfreitas.booking_ms.http;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.RequestInterceptor;
+import feign.codec.ErrorDecoder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.Authentication;
@@ -23,5 +25,10 @@ public class FeingConfig {
                 requestTemplate.header("Authorization", "Bearer " + token);
             }
         };
+    }
+
+    @Bean
+    public ErrorDecoder errorDecoder(ObjectMapper objectMapper) {
+        return new FeignErrorDecoder(objectMapper);
     }
 }
