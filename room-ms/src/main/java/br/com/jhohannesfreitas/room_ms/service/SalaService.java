@@ -8,6 +8,7 @@ import br.com.jhohannesfreitas.room_ms.dto.StatusSalaRequest;
 import br.com.jhohannesfreitas.room_ms.infra.exception.RegraNegocioException;
 import br.com.jhohannesfreitas.room_ms.mapper.SalaMapper;
 import br.com.jhohannesfreitas.room_ms.repository.SalaRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,7 @@ public class SalaService {
         return SalaMapper.toDTO(buscarPorId(id));
     }
 
+    @Transactional
     public SalaResponse cadastrar(SalaRequest salaRequest) {
         // Verifica se a sala já existe
         verificarSalaExistente(salaRequest.numero());
@@ -54,6 +56,7 @@ public class SalaService {
         return SalaMapper.toDTO(salaSala);
     }
 
+    @Transactional
     public SalaResponse atualizar(Long id, SalaRequest salaRequest) {
         // Busca a sala pelo id no banco
         Sala sala = buscarPorId(id);
@@ -72,6 +75,7 @@ public class SalaService {
 
     }
 
+    @Transactional
     public void deletar(Long id) {
         buscarPorId(id);
         salaRepository.deleteById(id);
