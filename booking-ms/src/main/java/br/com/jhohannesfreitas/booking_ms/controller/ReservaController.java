@@ -26,11 +26,9 @@ import java.util.List;
 public class ReservaController {
 
     private final ReservaService reservaService;
-    private final RabbitTemplate rabbitTemplate;
 
-    public ReservaController(ReservaService reservaService, ReservaService reservaService1, RabbitTemplate rabbitTemplate) {
-        this.reservaService = reservaService1;
-        this.rabbitTemplate = rabbitTemplate;
+    public ReservaController(ReservaService reservaService) {
+        this.reservaService = reservaService;
     }
 
     @GetMapping
@@ -62,6 +60,7 @@ public class ReservaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(reservaService.cadastrar(reservaRequest, usuarioId));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PutMapping("/{id}")
     public ResponseEntity<ReservaResponse> atualizar(@PathVariable Long id, @RequestBody @Valid ReservaRequest reservaRequest, Authentication authentication) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
