@@ -848,6 +848,31 @@ class ReservaServiceTest {
     }
 
     @Test
+    @DisplayName("Deveria lançar exceção ao tentar atualizar reserva inexistente")
+    void deveriaLancarExcecaoAoAtualizarReservaInexistente() {
+        // Padrão AAA
+        // 1- ARRANGE -> Preparar o ambiente de teste
+        Long usuarioId = 1L;
+        ReservaRequest reservaRequest = criarReservaTest(LocalDate.now(), 20);
+        Long reservaId = 1L;
+
+        // Simula a busca por Reserva no banco retornando vazia
+        given(reservaRepository.findById(reservaId)).willReturn(Optional.empty());
+
+        // ACT + ASSERT
+        assertThatThrownBy(() -> reservaService.atualizar(reservaId, reservaRequest, usuarioId))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("Reserva com id " + reservaId + " não encontrada.")
+                .extracting(ex -> ((RegraNegocioException) ex).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+
+        then(salaClient).shouldHaveNoInteractions();
+        then(usuarioClient).shouldHaveNoInteractions();
+        then(reservaRepository).should(never()).save(any());
+
+    }
+
+    @Test
     @DisplayName("Deveria lançar exceção quando o usuário informado não existir ao atualizar")
     void deveLancarExcecaoQuandoUsuarioNaoExistirAoAtualizar() {
         // ARRANGE
@@ -1276,7 +1301,29 @@ class ReservaServiceTest {
     }
 
     @Test
-    @DisplayName("Deveria lançar exceção ao deletar reserva de outro usuário")
+    @DisplayName("Deveria lançar exceção ao tentar deletar reserva inexistente")
+    void deveriaLancarExcecaoAoDeletarReservaInexistente() {
+        // Padrão AAA
+        // 1- ARRANGE -> Preparar o ambiente de teste
+        Long usuarioId = 1L;
+        Long reservaId = 999L;
+
+        // Simula a busca por Reserva no banco retornando vazia
+        given(reservaRepository.findById(reservaId)).willReturn(Optional.empty());
+
+        // ACT + ASSERT
+        assertThatThrownBy(() -> reservaService.deletar(reservaId, usuarioId))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("Reserva com id " + reservaId + " não encontrada.")
+                .extracting(ex -> ((RegraNegocioException) ex).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+
+        then(reservaRepository).should(never()).deleteById(any());
+
+    }
+
+    @Test
+    @DisplayName("Deveria lançar exceção ao tentar deletar reserva de outro usuário")
     void deveriaLancarExcecaoQuandoDeletarReservaNaoPertenceAoUsuario() {
         // Padrão AAA
         // 1- ARRANGE -> Preparar o ambiente de teste
@@ -1424,7 +1471,7 @@ class ReservaServiceTest {
 
     @Test
     @DisplayName("Deveria confirmar reserva sem integração manualmente")
-    void deveriaConfirmarReservaSemIntegracao(){
+    void deveriaConfirmarReservaQuandoSemIntegracao(){
         // Padrão AAA
         // 1- ARRANGE -> Preparar o ambiente de teste
         Reserva reservaPendente = new Reserva(
@@ -1461,7 +1508,7 @@ class ReservaServiceTest {
 
     @Test
     @DisplayName("Deveria alterar o status da reserva manual")
-    void deveriaAlterarStatusReserva() {
+    void deveriaAlterarStatusManualmenteDaReservaQuandoSemIntegracao() {
         // Padrão AAA
         // 1- ARRANGE -> Preparar o ambiente de teste
         Reserva reservaPendente = new Reserva(
@@ -1489,6 +1536,110 @@ class ReservaServiceTest {
         // 3.2. Verificação de estado (State Verification): Você verifica o resultado obtido.
         assertEquals(StatusReserva.ATIVA_SEM_INTEGRACAO, reservaCaptor.getValue().getStatus());
 
+    }
+
+    @Test
+    @DisplayName("Deveria lançar exceção ao tentar confirmar reserva inexistente")
+    void deveriaLancarExcecaoQuandoConfirmarReservaInexistente() {
+        // Padrão AAA
+        // 1- ARRANGE -> Preparar o ambiente de teste
+        Long usuarioId = 1L;
+        Long reservaId = 1L;
+
+        //Simula busca reserva por id e usuarioId retornando vazia
+        given(reservaRepository.findById(reservaId)).willReturn(Optional.empty());
+
+        // ACT + ASSERT
+        assertThatThrownBy(() -> reservaService.confirmarReservaSemIntegracao(reservaId, usuarioId))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("Reserva com id " + reservaId + " não encontrada.")
+                .extracting(ex -> ((RegraNegocioException) ex).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+
+        then(salaClient).shouldHaveNoInteractions();
+        then(rabbitTemplate).shouldHaveNoInteractions();
+        then(reservaRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Deveria lançar exceção ao tentar confirmar reserva de outro usuário")
+    void deveriaLancarExcecaoQuandoConfirmarReservaNaoPertenceAoUsuario() {
+        // Padrão AAA
+        // 1- ARRANGE -> Preparar o ambiente de teste
+        Long usuarioAutenticadoId = 1L;
+        Long donoDaReservaId = 2L;
+        Long reservaId = 1L;
+
+        Reserva reservaDeOutroUsuario = new Reserva(
+                LocalDate.now(),
+                LocalTime.of(9, 30),
+                LocalTime.of(10, 30),
+                20);
+        reservaDeOutroUsuario.setUsuarioId(donoDaReservaId);
+
+        //Simula busca reserva por id e usuarioId retornando reserva de outro usuário
+        given(reservaRepository.findById(reservaId)).willReturn(Optional.of(reservaDeOutroUsuario));
+
+        // ACT + ASSERT
+        assertThatThrownBy(() -> reservaService.confirmarReservaSemIntegracao(reservaId, usuarioAutenticadoId))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("Você não tem permissão para alterar ou deletar a reserva de outro usuário.")
+                .extracting(ex -> ((RegraNegocioException) ex).getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+
+        then(salaClient).shouldHaveNoInteractions();
+        then(rabbitTemplate).shouldHaveNoInteractions();
+        then(reservaRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Deveria lançar exceção ao tentar alterar status da reserva inexistente")
+    void deveriaLancarExcecaoQuandoAlterarStatusReservaInexistente() {
+        // Padrão AAA
+        // 1- ARRANGE -> Preparar o ambiente de teste
+        Long usuarioId = 1L;
+        Long reservaId = 1L;
+
+        //Simula busca reserva por id e usuarioId retornando vazia
+        given(reservaRepository.findById(reservaId)).willReturn(Optional.empty());
+
+        // ACT + ASSERT
+        assertThatThrownBy(() -> reservaService.alterarStatusReserva(reservaId, usuarioId))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("Reserva com id " + reservaId + " não encontrada.")
+                .extracting(ex -> ((RegraNegocioException) ex).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+
+        then(reservaRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Deveria lançar exceção ao tentar alterar status da reserva de outro usuário")
+    void deveriaLancarExcecaoQuandoAlterarStatusReservaNaoPertenceAoUsuario() {
+        // Padrão AAA
+        // 1- ARRANGE -> Preparar o ambiente de teste
+        Long usuarioAutenticadoId = 1L;
+        Long donoDaReservaId = 2L;
+        Long reservaId = 1L;
+
+        Reserva reservaDeOutroUsuario = new Reserva(
+                LocalDate.now(),
+                LocalTime.of(9, 30),
+                LocalTime.of(10, 30),
+                20);
+        reservaDeOutroUsuario.setUsuarioId(donoDaReservaId);
+
+        //Simula busca reserva por id e usuarioId retornando reserva de outro usuário
+        given(reservaRepository.findById(reservaId)).willReturn(Optional.of(reservaDeOutroUsuario));
+
+        // ACT + ASSERT
+        assertThatThrownBy(() -> reservaService.alterarStatusReserva(reservaId, usuarioAutenticadoId))
+                .isInstanceOf(RegraNegocioException.class)
+                .hasMessageContaining("Você não tem permissão para alterar ou deletar a reserva de outro usuário.")
+                .extracting(ex -> ((RegraNegocioException) ex).getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+
+        then(reservaRepository).should(never()).save(any());
     }
 
     private ReservaRequest criarReservaTest(LocalDate data, Integer quantidadePessoas) {
