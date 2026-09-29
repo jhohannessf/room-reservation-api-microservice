@@ -168,6 +168,14 @@
 			<artifactId>spring-boot-starter-kafka</artifactId>
 		</dependency>
 		<!-- ============================================================ -->
+		<!-- Doc (SpringDoc Openapi)                         				  -->
+		<!-- ============================================================ -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>3.0.2</version>
+		</dependency>
+		<!-- ============================================================ -->
 		<!-- TESTES                                                       -->
 		<!-- ============================================================ -->
 		<dependency>

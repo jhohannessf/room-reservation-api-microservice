@@ -43,6 +43,10 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> {
                             auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
 
+                            auth.requestMatchers("/swagger-ui/**",
+                                    "/swagger-ui.html",
+                                    "/v3/api-docs/**").permitAll();
+
                             auth.requestMatchers(HttpMethod.GET, "/api/v1/salas/**").permitAll();
                             auth.requestMatchers(HttpMethod.POST, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
                             auth.requestMatchers(HttpMethod.DELETE, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
