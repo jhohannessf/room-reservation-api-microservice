@@ -1,6 +1,6 @@
 # Room Reservation API — Microservices
 
-Evolução do projeto [room-reservation-api](https://github.com/jhohannessf/room-reservation-api) (originalmente um monolito) para uma **arquitetura de microsserviços**, com **Service Discovery (Eureka)**, **API Gateway**, **configuração centralizada (Spring Cloud Config)**, **resiliência com Circuit Breaker**, comunicação síncrona via **OpenFeign**, **mensageria assíncrona (Kafka e RabbitMQ)**, autenticação **stateless com JWT**, **login social (Google e GitHub)** e **autenticação de dois fatores (2FA)** por e-mail ou aplicativo autenticador (TOTP).
+Evolução do projeto [room-reservation-api](https://github.com/jhohannessf/room-reservation-api) (originalmente um monolito) para uma **arquitetura de microsserviços**, com **Service Discovery (Eureka)**, **API Gateway**, **configuração centralizada (Spring Cloud Config)**, **resiliência com Circuit Breaker**, comunicação síncrona via **OpenFeign**, **mensageria assíncrona (Kafka e RabbitMQ)**, autenticação **stateless com JWT**, **login social (Google e GitHub)**, **autenticação de dois fatores (2FA)** por e-mail ou aplicativo autenticador (TOTP), **documentação interativa da API (Swagger/OpenAPI)** e **testes automatizados** (JUnit 5, Mockito e Testcontainers).
 
 > 📌 Este repositório é a continuação do projeto monolítico citado acima. Aqui a mesma regra de negócio (gestão de usuários, salas e reservas) foi redesenhada como um sistema distribuído.
 
@@ -13,6 +13,8 @@ Evolução do projeto [room-reservation-api](https://github.com/jhohannessf/room
 - [Resiliência](#resiliência)
 - [Mensageria](#mensageria)
 - [Serviços e endpoints](#serviços-e-endpoints)
+- [Documentação da API (Swagger)](#documentação-da-api-swagger)
+- [Testes](#testes)
 - [Modelagem de dados](#modelagem-de-dados)
 - [Como rodar o projeto](#como-rodar-o-projeto)
 - [Roadmap](#roadmap)
@@ -104,6 +106,9 @@ Como funciona na prática:
 - **MySQL** — um banco por serviço de negócio
 - **Docker Compose** — sobe os 6 serviços de aplicação + MySQL + RabbitMQ + Kafka + Kafka UI com um único comando
 - **Bean Validation (Jakarta Validation)**
+- **springdoc-openapi** — documentação OpenAPI 3 e Swagger UI em `user-ms`, `room-ms` e `booking-ms`
+- **JUnit 5 + Mockito + AssertJ** — testes unitários das camadas de serviço e de mapeamento
+- **Testcontainers** (MySQL, RabbitMQ e Kafka) — base para testes de integração em `booking-ms`
 
 ## Estrutura do repositório
 
@@ -122,17 +127,20 @@ room-reservation-microservices/
 ├── gateway-ms/                    # API Gateway
 │   └── Dockerfile
 ├── user-ms/                       # autenticação, usuários, perfis, 2FA
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── src/test/                  # UsuarioServiceTest, UsuarioMapperTest
 ├── room-ms/                       # salas — consumidor Kafka/RabbitMQ
 │   ├── Dockerfile
-│   └── src/main/java/.../messaging/
-│       ├── kafka/                 # ReservaListenerKafka
-│       └── rabbitmq/              # RabbitMQConfig, ReservaListenerRabbitMQ
+│   ├── src/main/java/.../messaging/
+│   │   ├── kafka/                 # ReservaListenerKafka
+│   │   └── rabbitmq/              # RabbitMQConfig, ReservaListenerRabbitMQ
+│   └── src/test/                  # SalaServiceTest, SalaMapperTest
 ├── booking-ms/                    # reservas — orquestra user-ms + room-ms via Feign (Circuit Breaker) e publica eventos
 │   ├── Dockerfile
-│   └── src/main/java/.../messaging/
-│       ├── kafka/                 # KafkaConfig (tópico booking-created)
-│       └── rabbitmq/              # RabbitMQConfig
+│   ├── src/main/java/.../messaging/
+│   │   ├── kafka/                 # KafkaConfig (tópico booking-created)
+│   │   └── rabbitmq/              # RabbitMQConfig
+│   └── src/test/                  # ReservaServiceTest, ReservaMapperTest, integration/AbstractIntegrationTest (Testcontainers)
 └── README.md
 ```
 
@@ -292,6 +300,47 @@ Todas as rotas abaixo passam pelo `gateway-ms` (porta `8080`), prefixadas pelo n
 - Config Server (para inspecionar a config resolvida de um serviço): `http://localhost:8888/{nome-do-serviço}/default`, ex: `http://localhost:8888/user-ms/default`
 - RabbitMQ Management: `http://localhost:15672` (usuário/senha definidos em `RABBITMQ_DEFAULT_USER`/`RABBITMQ_DEFAULT_PASS`)
 - Kafka UI (painel visual do Kafka, sem equivalente nativo): `http://localhost:8085`
+- Swagger UI de cada serviço (via gateway): `http://localhost:8080/user-ms/swagger-ui/index.html`, `http://localhost:8080/room-ms/swagger-ui/index.html` e `http://localhost:8080/booking-ms/swagger-ui/index.html` — ver [Documentação da API (Swagger)](#documentação-da-api-swagger)
+
+## Documentação da API (Swagger)
+
+`user-ms`, `room-ms` e `booking-ms` expõem documentação interativa gerada pelo **springdoc-openapi**, acessível pelo próprio `gateway-ms`:
+
+| Serviço | Swagger UI |
+|---|---|
+| `user-ms` | `http://localhost:8080/user-ms/swagger-ui/index.html` |
+| `room-ms` | `http://localhost:8080/room-ms/swagger-ui/index.html` |
+| `booking-ms` | `http://localhost:8080/booking-ms/swagger-ui/index.html` |
+
+- **Anotações nos controllers**: cada controller usa `@Tag` (agrupamento), `@Operation` (resumo e descrição de cada endpoint) e `@SecurityRequirement(name = "bearerAuth")` nos endpoints protegidos.
+- **Autenticação no Swagger**: cada serviço tem uma `OpenApiConfiguration` que registra o esquema de segurança `bearerAuth` (HTTP Bearer / JWT). Basta fazer login em `POST /user-ms/api/v1/auth/login`, clicar em **Authorize** no Swagger UI e colar o token para testar as rotas protegidas.
+- **Funcionando atrás do gateway**: como o gateway remove o prefixo do serviço (`StripPrefix=1`), o Swagger UI precisa saber qual é o caminho externo. Isso é resolvido por três peças: o gateway adiciona o header `X-Forwarded-Prefix` em cada rota; cada serviço usa `server.forward-headers-strategy=framework`; e as propriedades `springdoc.swagger-ui.url` / `config-url` (no `config-repo/`) apontam para `/<nome-do-serviço>/v3/api-docs`. O `server` da `OpenApiConfiguration` também é `/<nome-do-serviço>`, então o botão "Try it out" já chama o gateway.
+- **Segurança**: `/swagger-ui/**`, `/swagger-ui.html` e `/v3/api-docs/**` estão liberadas (`permitAll`) na `SecurityConfiguration` de cada serviço, para a documentação abrir sem token.
+
+## Testes
+
+### Testes unitários
+
+As camadas de serviço e de mapeamento dos três serviços de negócio têm testes unitários com **JUnit 5**, **Mockito** (`MockitoExtension`, `BDDMockito` com `given/then`, `ArgumentCaptor`) e **AssertJ**, com nomes descritivos via `@DisplayName`:
+
+| Serviço | Classe de teste | Nº de testes | O que cobre |
+|---|---|---|---|
+| `user-ms` | `UsuarioServiceTest` | 22 | Listagem (simples e paginada), busca por id, cadastro com e-mail duplicado, atualização, exclusão, adicionar/remover perfil e ativação da 2FA |
+| `room-ms` | `SalaServiceTest` | 15 | Listagem e paginação, busca por id, cadastro e atualização com número de sala duplicado, exclusão e alteração de status |
+| `booking-ms` | `ReservaServiceTest` | 42 | Listagem e busca, cadastro/atualização/exclusão com todas as regras de negócio (usuário e sala inexistentes, data no passado, hora inicial ≥ final, horário de funcionamento, conflito de horário, capacidade da sala, apenas o dono altera ou remove) e o fluxo de integração com `room-ms` (reserva `ATIVA` x `ATIVA_SEM_INTEGRACAO`, job de reconciliação que segue processando as demais reservas quando uma falha, confirmação manual e alteração de status) |
+| todos os 3 | `*MapperTest` | 2 cada | Conversão request → entidade e entidade → response |
+
+Para rodar apenas os testes unitários de um serviço:
+
+```bash
+cd booking-ms && ./mvnw test -Dtest='*ServiceTest,*MapperTest'
+```
+
+### Testes de integração (Testcontainers)
+
+`booking-ms` já tem a base para testes de integração em `integration/AbstractIntegrationTest`: uma classe `@SpringBootTest` + `@Testcontainers` que sobe **MySQL 8.0**, **RabbitMQ (`rabbitmq:3-management`)** e **Kafka (`confluentinc/cp-kafka:7.5.0`)** em containers descartáveis e injeta as URLs deles no contexto do Spring via `@DynamicPropertySource` (datasource, `spring.rabbitmq.*` e `spring.kafka.bootstrap-servers`). Os containers são estáticos, então sobem uma única vez para todos os testes da classe.
+
+Hoje essa classe só valida que o contexto sobe conectado aos três containers (`contextLoads`) — é o alicerce para testes de integração de verdade (ver [Roadmap](#roadmap)). O arquivo `src/test/resources/testcontainers.properties` aponta o Testcontainers para o daemon do Docker em `tcp://localhost:2375`; ajuste esse valor se o seu ambiente expõe o Docker de outra forma. Rodar esses testes exige o Docker em execução.
 
 ## Modelagem de dados
 
@@ -422,8 +471,13 @@ KAFKA_BOOTSTRAP_SERVERS=       # via Docker Compose já vem fixado como kafka:90
 - [x] Integrar Kafka ao código: tópico `booking-created`, producer em `booking-ms`, consumer em `room-ms`, com DTOs próprios por serviço (sem header de tipo do Jackson)
 - [x] Integrar RabbitMQ ao código: exchange direta + fila com DLQ para notificação de status de sala, com retry configurado
 - [x] `docker-compose.yml` com RabbitMQ, Kafka (modo KRaft, sem Zookeeper) e Kafka UI provisionados e conectados a `room-ms`/`booking-ms`
+- [x] Testes unitários (JUnit 5 + Mockito + AssertJ) das camadas de serviço e mapper de `user-ms`, `room-ms` e `booking-ms`
+- [x] Base de testes de integração com Testcontainers (MySQL, RabbitMQ e Kafka) em `booking-ms`
+- [x] Documentação Swagger/OpenAPI (springdoc) em `user-ms`, `room-ms` e `booking-ms`, acessível via gateway e com suporte a JWT (`bearerAuth`)
+- [x] `@PreAuthorize("isAuthenticated()")` explícito no `PUT /api/v1/reservas/{id}` de `booking-ms`
 - [ ] Dar uso real ao evento consumido em `room-ms` (Kafka e RabbitMQ) — hoje ambos os listeners só logam a mensagem recebida; próximo passo natural é atualizar um cache/projeção de disponibilidade de sala
-- [ ] Testes de unidade e integração (JUnit 5 + Mockito) para os seis serviços
+- [ ] Testes de integração reais além do `contextLoads` (fluxo de reserva com MySQL, Kafka e RabbitMQ via Testcontainers) e replicar a base de Testcontainers em `user-ms` e `room-ms`
+- [ ] Testes de controllers/segurança (`@WebMvcTest` + Spring Security Test), do `FeignErrorDecoder` e dos listeners Kafka/RabbitMQ; `gateway-ms`, `server-ms` e `config-server-ms` só têm o teste de contexto padrão
 - [ ] Healthchecks via Spring Boot Actuator nos serviços de negócio, para o `docker-compose.yml` poder usar `service_healthy` em vez de `service_started` também entre os microsserviços (hoje já usado para RabbitMQ e Kafka)
 - [ ] JWT validado no próprio `gateway-ms`, para rotas públicas x autenticadas serem decididas antes de chegar aos serviços de negócio
 - [ ] Migrar o Config Server para modo Git-backed, se for necessário editar configuração sem rebuildar o serviço
