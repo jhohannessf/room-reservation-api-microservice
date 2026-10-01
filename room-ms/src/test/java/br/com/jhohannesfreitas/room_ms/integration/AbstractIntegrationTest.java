@@ -1,4 +1,4 @@
-package br.com.jhohannesfreitas.booking_ms.integration;
+package br.com.jhohannesfreitas.room_ms.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,7 +18,7 @@ public class AbstractIntegrationTest {
     // 1 - Definir os conteineres (Static pra subir apenas uma vez)
     @Container
     static MySQLContainer<?> mysqlContainer = new MySQLContainer<>("mysql:8.0")
-            .withDatabaseName("booking_ms_test")
+            .withDatabaseName("room_ms_test")
             .withUsername("root")
             .withPassword("mysql");
 
@@ -52,3 +52,4 @@ public class AbstractIntegrationTest {
         // Se chegar aqui, significa que o Spring conseguiu se conectar no banco, rabbit e kafka!
     }
 }
+
