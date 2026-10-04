@@ -7,41 +7,46 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.RabbitMQContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
-@Testcontainers
-public class AbstractIntegrationTest {
+public abstract class AbstractIntegrationTest {
 
-    // 1 - Definir os conteineres (Static pra subir apenas uma vez)
-    @Container
-    static MySQLContainer<?> mysqlContainer = new MySQLContainer<>("mysql:8.0")
+    // Padrão singleton: sem @Container e sem @Testcontainers.
+    // Os containers sobem UMA vez por JVM e são compartilhados por todas as classes de teste.
+    // O Ryuk (container de limpeza do Testcontainers) os remove quando a JVM termina.
+    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
             .withDatabaseName("room_ms_test")
             .withUsername("root")
             .withPassword("mysql");
 
-    @Container
-    static RabbitMQContainer rabbitMQContainer = new RabbitMQContainer("rabbitmq:3-management");
+    static final RabbitMQContainer RABBITMQ = new RabbitMQContainer("rabbitmq:3-management");
 
-    @Container
-    static KafkaContainer kafkaContainer = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.0"));
+    static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.0"));
 
-    // 2 - Passando as configurações dinâmicas para o Spring boot
+    static {
+        // Sobe os três uma única vez; só retorna quando todos estiverem prontos
+        MYSQL.start();
+        RABBITMQ.start();
+        KAFKA.start();
+    }
+
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
-        //Banco de dados
-        registry.add("spring.datasource.url", mysqlContainer::getJdbcUrl);
-        registry.add("spring.datasource.username", mysqlContainer::getUsername);
-        registry.add("spring.datasource.password", mysqlContainer::getPassword);
+        // Banco de dados
+        registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
+        registry.add("spring.datasource.username", MYSQL::getUsername);
+        registry.add("spring.datasource.password", MYSQL::getPassword);
 
-        //RabbitMQ
-        registry.add("spring.rabbitmq.host", rabbitMQContainer::getHost);
-        registry.add("spring.rabbitmq.port", rabbitMQContainer::getAmqpPort);
+        // RabbitMQ
+        registry.add("spring.rabbitmq.host", RABBITMQ::getHost);
+        registry.add("spring.rabbitmq.port", RABBITMQ::getAmqpPort);
+        registry.add("spring.rabbitmq.username", RABBITMQ::getAdminUsername);
+        registry.add("spring.rabbitmq.password", RABBITMQ::getAdminPassword);
 
-        //Kafka
-        registry.add("spring.kafka.bootstrap-servers", kafkaContainer::getBootstrapServers);
+        // Kafka
+        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
+
     }
 
     // Teste simples só para garantir que tudo sobe corretamente

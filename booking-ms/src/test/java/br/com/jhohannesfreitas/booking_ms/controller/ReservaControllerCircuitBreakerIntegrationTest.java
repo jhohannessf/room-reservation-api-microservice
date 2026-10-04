@@ -7,6 +7,7 @@ import br.com.jhohannesfreitas.booking_ms.integration.AbstractIntegrationTest;
 import br.com.jhohannesfreitas.booking_ms.repository.ReservaRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -32,7 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
-class ReservaControllerTest extends AbstractIntegrationTest {
+class ReservaControllerCircuitBreakerIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -48,6 +49,11 @@ class ReservaControllerTest extends AbstractIntegrationTest {
 
     @Value("${jwt.key}")
     private String jwtKey;
+
+    @AfterEach
+    void tearDown() {
+        reservaRepository.deleteAll();
+    }
 
     @Test
     @DisplayName("Deveria acionar o fallback do Circuit Breaker quando o room-ms estiver fora do ar")

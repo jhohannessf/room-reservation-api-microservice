@@ -226,8 +226,8 @@ public class ReservaService {
     }
 
     private void validarConflitoHorarioCadastro(ReservaRequest reservaRequest) {
-        List<Reserva> listaReservas = reservaRepository.findBySalaIdAndDataAndStatus(
-                reservaRequest.salaId(), reservaRequest.data(), StatusReserva.ATIVA);
+        List<Reserva> listaReservas = reservaRepository.findBySalaIdAndDataAndStatusIn(
+                reservaRequest.salaId(), reservaRequest.data(), List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO));
         for (Reserva reservaExistente : listaReservas) {
             if (reservaExistente.getHoraInicial().isBefore(reservaRequest.horaFinal())
                     && reservaExistente.getHoraFinal().isAfter(reservaRequest.horaInicial())) {

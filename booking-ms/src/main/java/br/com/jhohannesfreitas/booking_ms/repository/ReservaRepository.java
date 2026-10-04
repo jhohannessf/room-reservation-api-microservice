@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
-    List<Reserva> findBySalaIdAndDataAndStatus(Long salaId, LocalDate data, StatusReserva statusReserva);
+    List<Reserva> findBySalaIdAndDataAndStatusIn(Long salaId, LocalDate data, List<StatusReserva> statusReserva);
 
     List<Reserva> findBySalaIdAndDataAndStatusAndIdNot(Long salaId, LocalDate data, StatusReserva status, Long idReserva); // IdNot significa "ID diferente de"
 

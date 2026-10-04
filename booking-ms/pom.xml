@@ -34,7 +34,6 @@
 	</properties>
 
 	<dependencies>
-
 		<!-- ============================================================ -->
 		<!-- PERSISTÊNCIA (JPA + MySQL + Flyway)                          -->
 		<!-- ============================================================ -->
@@ -227,6 +226,12 @@
 		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>testcontainers-kafka</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- Awaitility: esperar efeitos assíncronos (consumidores) sem Thread.sleep -->
+		<dependency>
+			<groupId>org.awaitility</groupId>
+			<artifactId>awaitility</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

@@ -402,7 +402,7 @@ class ReservaServiceTest {
     }
 
     @Test
-    @DisplayName("Deveria lançar exceção buscar reserva por id não for encontrada")
+    @DisplayName("Deveria lançar exceção ao buscar reserva por id não for encontrada")
     void deveriaLancarExcecaoQuandoBuscarReservaPorIdInexistente() {
         // Padrão AAA
         // 1- ARRANGE -> Preparar o ambiente de teste
@@ -435,10 +435,10 @@ class ReservaServiceTest {
         given(salaClient.buscarPorId(reservaRequest.salaId())).willReturn(salaRequest);
 
         // Simula consulta do banco para buscar Reserva existente por salaId, data e status retornando uma lista vazia
-        given(reservaRepository.findBySalaIdAndDataAndStatus(
+        given(reservaRepository.findBySalaIdAndDataAndStatusIn(
                 reservaRequest.salaId(),
                 reservaRequest.data(),
-                StatusReserva.ATIVA))
+                List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO)))
                 .willReturn(List.of());
 
         // Simula que a integração está ok, não entra no Circuit Breaker e retorna true
@@ -464,7 +464,7 @@ class ReservaServiceTest {
         // "Então Client, você DEVERIA verificar se foi chamado o 'buscarPorId()' do objeto Sala".
         then(salaClient).should().buscarPorId(reservaRequest.salaId());
         // "Então Repository, você DEVERIA verificar se foi chamado o 'findBySalaIdAndDataAndStatus()' do objeto Reserva".
-        then(reservaRepository).should().findBySalaIdAndDataAndStatus(reservaRequest.salaId(), reservaRequest.data(), StatusReserva.ATIVA);
+        then(reservaRepository).should().findBySalaIdAndDataAndStatusIn(reservaRequest.salaId(), reservaRequest.data(), List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO));
         // "Então kafkaTemplate, você DEVERIA verificar se foi enviado mensagens
         then(kafkaTemplate).should().send("booking-created", reservaRequest);
         // "Então rabbitTemplate, você DEVERIA verificar que não há mensagem interação de mensagens
@@ -724,10 +724,10 @@ class ReservaServiceTest {
         given(salaClient.buscarPorId(reservaRequest.salaId())).willReturn(salaRequest);
 
         // Simula consulta do banco para buscar Reserva por salaId, data e status
-        given(reservaRepository.findBySalaIdAndDataAndStatus(
+        given(reservaRepository.findBySalaIdAndDataAndStatusIn(
                 reservaRequest.salaId(),
                 reservaRequest.data(),
-                StatusReserva.ATIVA))
+                List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO)))
                 .willReturn(List.of(reservaExistente));
 
         // 2- ACT -> Ação que deseja testar é executada (Chamada do Método)
@@ -758,10 +758,10 @@ class ReservaServiceTest {
         given(salaClient.buscarPorId(reservaRequest.salaId())).willReturn(salaRequest);
 
         // Simula consulta do banco para buscar Reserva existente por salaId, data e status retornando uma lista vazia
-        given(reservaRepository.findBySalaIdAndDataAndStatus(
+        given(reservaRepository.findBySalaIdAndDataAndStatusIn(
                 reservaRequest.salaId(),
                 reservaRequest.data(),
-                StatusReserva.ATIVA))
+                List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO)))
                 .willReturn(List.of());
 
         // 2- ACT -> Ação que deseja testar é executada (Chamada do Método)
