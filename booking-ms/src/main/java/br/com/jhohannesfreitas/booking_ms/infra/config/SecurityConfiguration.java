@@ -48,10 +48,6 @@ public class SecurityConfiguration {
                                     "/swagger-ui.html",
                                     "/v3/api-docs/**").permitAll();
 
-                            auth.requestMatchers(HttpMethod.POST, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
-                            auth.requestMatchers(HttpMethod.PATCH, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
-                            auth.requestMatchers(HttpMethod.DELETE, "/api/v1/salas/**").hasRole("ADMINISTRADOR");
-
                             auth.anyRequest().authenticated();
                         }
                 )
