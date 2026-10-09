@@ -54,7 +54,7 @@ class SalaServiceTest {
         given(salaRepository.findAll()).willReturn(List.of(sala));
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        List<SalaResponse> listSalaResponse = salaService.listarSalas();
+        List<SalaResponse> listSalaResponse = salaService.listar();
         SalaResponse salaResponse = listSalaResponse.getFirst();
 
         //ASSERT (VERIFICAR) - Verifica se o resultado obtido após a ação está de acordo com o que se esperava do teste
@@ -83,7 +83,7 @@ class SalaServiceTest {
         given(salaRepository.findAll()).willReturn(List.of());
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        List<SalaResponse> listSalaResponse = salaService.listarSalas();
+        List<SalaResponse> listSalaResponse = salaService.listar();
 
         //ASSERT (VERIFICAR) - Verifica se o resultado obtido após a ação está de acordo com o que se esperava do teste
 
@@ -99,7 +99,7 @@ class SalaServiceTest {
 
     @Test
     @DisplayName("Deveria paginar salas quando tiver cadastradas")
-    void deveriaListarSalasPorPaginaQuandoTiverCadastradas() {
+    void deveriaListarPorPaginaQuandoTiverCadastradas() {
         //ARRANGE (PREPARAR) - Configurar o ambiente
         Sala sala = criarSala();
         
@@ -114,7 +114,7 @@ class SalaServiceTest {
         given(salaRepository.findAll(pageable)).willReturn(page);
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        Page<SalaResponse> salaResponse = salaService.listarSalasPorPagina(pageable);
+        Page<SalaResponse> salaResponse = salaService.listarPaginado(pageable);
         SalaResponse primeiraSalaResponse = salaResponse.getContent().getFirst();
         SalaResponse segundaSalaResponse = salaResponse.getContent().get(1);
 
@@ -166,7 +166,7 @@ class SalaServiceTest {
         given(salaRepository.findAll(pageable)).willReturn(page);
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        Page<SalaResponse> salaResponse = salaService.listarSalasPorPagina(pageable);
+        Page<SalaResponse> salaResponse = salaService.listarPaginado(pageable);
 
         //ASSERT (VERIFICAR) - Verifica se o resultado obtido após a ação está de acordo com o que se esperava do teste
 

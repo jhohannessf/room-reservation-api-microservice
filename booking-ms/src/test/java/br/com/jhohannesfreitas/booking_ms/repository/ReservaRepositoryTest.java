@@ -67,7 +67,7 @@ class ReservaRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     @DisplayName("Deveria buscar reservas por salaId, data e status, ignorando o próprio ID")
-    void findBySalaIdAndDataAndStatusAndIdNotIn() {
+    void findBySalaIdAndDataAndStatusInAndIdNotIn() {
         // ARRANGE
         Reserva reserva = criarReserva(LocalDate.now(), 20);
         reserva.setUsuarioId(1L);
@@ -78,7 +78,7 @@ class ReservaRepositoryTest extends AbstractIntegrationTest {
         Reserva reservaPersistida = reservaRepository.save(reserva);
 
         // ACT
-        List<Reserva> reservas = reservaRepository.findBySalaIdAndDataAndStatusAndIdNot(reservaPersistida.getSalaId(), reservaPersistida.getData(), reservaPersistida.getStatus(), reservaPersistida.getId());
+        List<Reserva> reservas = reservaRepository.findBySalaIdAndDataAndStatusInAndIdNot(reservaPersistida.getSalaId(), reservaPersistida.getData(), List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO), reservaPersistida.getId());
 
         // ASSERT
 
@@ -95,7 +95,7 @@ class ReservaRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     @DisplayName("Deveria buscar reservas por salaId, data e status, ignorando o próprio ID e retornando outra reserva.")
-    void findBySalaIdAndDataAndStatusAndIdNotReturnOtherBookingIn() {
+    void findBySalaIdAndDataAndStatusInAndIdNotReturnOtherBookingIn() {
         // ARRANGE
         Reserva reserva = criarReserva(LocalDate.now(), 20);
         reserva.setUsuarioId(1L);
@@ -113,10 +113,10 @@ class ReservaRepositoryTest extends AbstractIntegrationTest {
 
         // ACT
         List<Reserva> reservas =
-                reservaRepository.findBySalaIdAndDataAndStatusAndIdNot(
+                reservaRepository.findBySalaIdAndDataAndStatusInAndIdNot(
                         reservaPersistida.getSalaId(),
                         reservaPersistida.getData(),
-                        reservaPersistida.getStatus(),
+                        List.of(reservaPersistida.getStatus()),
                         reservaPersistida.getId()
                 );
         // ASSERT

@@ -27,7 +27,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/v1/reservas")
+@RequestMapping("/api/v1/reservas")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Reservas", description = "Operações relacionadas às reservas de salas")
 public class ReservaController {
@@ -52,8 +52,7 @@ public class ReservaController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reservas retornada com sucesso"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @GetMapping
     public ResponseEntity<List<ReservaResponse>> listar() {
@@ -77,8 +76,7 @@ public class ReservaController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reservas retornada com sucesso por página"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @GetMapping("/listar-paginado")
     public ResponseEntity<Page<ReservaResponse>> listarPaginado(Pageable pageable) {
@@ -106,8 +104,7 @@ public class ReservaController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reservas por sala e intervalo retornada com sucesso por página"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @GetMapping("/sala/{id}")
     public ResponseEntity<Page<ReservaResponse>> listarReservaPorSalaEIntervalo(@PathVariable Long id, @RequestParam LocalDate inicio, @RequestParam LocalDate fim, Pageable pageable) {
@@ -128,7 +125,6 @@ public class ReservaController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reserva encontrada com sucesso"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Reserva não encontrada")
     })
     @GetMapping("/{id}")
@@ -161,7 +157,6 @@ public class ReservaController {
             @ApiResponse(responseCode = "201", description = "Reserva cadastrada com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados da reserva inválidos"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Usuário ou sala não encontrados"),
             @ApiResponse(responseCode = "409", description = "Conflito de horário ou regra de negócio")
     })

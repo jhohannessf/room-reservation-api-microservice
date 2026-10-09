@@ -1,6 +1,5 @@
 package br.com.jhohannesfreitas.room_ms.controller;
 
-import br.com.jhohannesfreitas.room_ms.domain.enums.StatusSala;
 import br.com.jhohannesfreitas.room_ms.dto.SalaRequest;
 import br.com.jhohannesfreitas.room_ms.dto.SalaResponse;
 import br.com.jhohannesfreitas.room_ms.dto.StatusSalaRequest;
@@ -44,11 +43,10 @@ public class SalaController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de salas retornada com sucesso"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
     })
     @GetMapping
-    public ResponseEntity<List<SalaResponse>> listarSalas() {
-        return ResponseEntity.status(HttpStatus.OK).body(salaService.listarSalas());
+    public ResponseEntity<List<SalaResponse>> listar() {
+        return ResponseEntity.status(HttpStatus.OK).body(salaService.listar());
     }
 
     @Operation(
@@ -68,13 +66,12 @@ public class SalaController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de salas retornada com sucesso por página"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @GetMapping("/listar-paginado")
-    public ResponseEntity<Page<SalaResponse>> listarPorPagina(Pageable pageable) {
+    public ResponseEntity<Page<SalaResponse>> listarPaginado(Pageable pageable) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(salaService.listarSalasPorPagina(pageable));
+                .body(salaService.listarPaginado(pageable));
     }
 
     @Operation(
@@ -90,8 +87,7 @@ public class SalaController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Sala encontrada com sucesso"),
             @ApiResponse(responseCode = "404", description = "Sala não encontrada"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @GetMapping("/{id}")
     public ResponseEntity<SalaResponse> buscarPorId(@PathVariable Long id) {
@@ -119,7 +115,7 @@ public class SalaController {
     })
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @PostMapping
-    public ResponseEntity<SalaResponse> cadastrar(@RequestBody SalaRequest salaRequest) {
+    public ResponseEntity<SalaResponse> cadastrar(@RequestBody @Valid SalaRequest salaRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(salaService.cadastrar(salaRequest));
     }
 
@@ -190,7 +186,6 @@ public class SalaController {
             @ApiResponse(responseCode = "200", description = "Sala atualizada com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Sala não encontrada"),
     })
     @PatchMapping("/alterar-status/{id}")

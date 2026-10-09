@@ -4,7 +4,6 @@ import br.com.jhohannesfreitas.room_ms.domain.entity.Sala;
 import br.com.jhohannesfreitas.room_ms.domain.enums.StatusSala;
 import br.com.jhohannesfreitas.room_ms.dto.SalaRequest;
 import br.com.jhohannesfreitas.room_ms.dto.SalaResponse;
-import br.com.jhohannesfreitas.room_ms.dto.StatusSalaRequest;
 import br.com.jhohannesfreitas.room_ms.infra.exception.RegraNegocioException;
 import br.com.jhohannesfreitas.room_ms.mapper.SalaMapper;
 import br.com.jhohannesfreitas.room_ms.repository.SalaRepository;
@@ -25,14 +24,14 @@ public class SalaService {
         this.salaRepository = salaRepository;
     }
 
-    public List<SalaResponse> listarSalas(){
+    public List<SalaResponse> listar(){
         return salaRepository.findAll()
                 .stream()
                 .map(SalaMapper::toDTO) // sala -> SalaMapper.toResponse(sala)
                 .toList();
     }
 
-    public Page<SalaResponse> listarSalasPorPagina(Pageable pageable) {
+    public Page<SalaResponse> listarPaginado(Pageable pageable) {
         return salaRepository.findAll(pageable)
                 .map(SalaMapper::toDTO); // sala -> SalaMapper.toDTO(sala) = Para cada Sala dentro dessa Page, execute SalaMapper.toDTO().
     }
@@ -96,6 +95,18 @@ public class SalaService {
     private Sala buscarPorId(Long id) {
         return salaRepository.findById(id).orElseThrow(() -> new RegraNegocioException("Sala com id " + id + " não encontrada.",
                 HttpStatus.NOT_FOUND));
+    }
+
+    // Revisar isso aqui, preciso adaptar se vou utilizar por usuário ou por role
+    private Sala buscarPorIdAndUsuarioId(Long id, Long usuarioId) {
+        Sala sala = salaRepository.findById(id).orElseThrow(() -> new RegraNegocioException("Sala com id " + id + " não encontrada.",
+                HttpStatus.NOT_FOUND));
+        if (!sala.getId().equals(usuarioId)) {
+            throw new RegraNegocioException(
+                    "Você não tem permissão para alterar ou deletar a sala de outro usuário.",
+                    HttpStatus.FORBIDDEN);
+        }
+        return sala;
     }
 
     private void verificarSalaExistente(Integer numero) {

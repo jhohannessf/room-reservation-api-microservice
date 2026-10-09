@@ -802,10 +802,10 @@ class ReservaServiceTest {
         given(salaClient.buscarPorId(reservaRequest.salaId())).willReturn(salaRequest);
 
         // Simula consulta do banco para buscar Reserva existente por salaId, data e status, menos do ID da própria Reserva
-        given(reservaRepository.findBySalaIdAndDataAndStatusAndIdNot(
+        given(reservaRepository.findBySalaIdAndDataAndStatusInAndIdNot(
                 reservaRequest.salaId(),
                 reservaRequest.data(),
-                StatusReserva.ATIVA,
+                List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO),
                 reservaId))
                 .willReturn(List.of());
 
@@ -829,7 +829,7 @@ class ReservaServiceTest {
         // "Então Client, você DEVERIA verificar se foi chamado o 'buscarPorId()' do objeto Sala".
         then(salaClient).should().buscarPorId(reservaRequest.salaId());
         // "Então Repository, você DEVERIA verificar se foi chamado o 'findBySalaIdAndDataAndStatus()' do objeto Reserva".
-        then(reservaRepository).should().findBySalaIdAndDataAndStatusAndIdNot(reservaRequest.salaId(), reservaRequest.data(), StatusReserva.ATIVA, reservaId);
+        then(reservaRepository).should().findBySalaIdAndDataAndStatusInAndIdNot(reservaRequest.salaId(), reservaRequest.data(), List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO), reservaId);
 
         // 3.2. Verificação de estado (State Verification): Você verifica o resultado obtido.
 
@@ -1200,10 +1200,10 @@ class ReservaServiceTest {
         given(salaClient.buscarPorId(reservaRequest.salaId())).willReturn(salaRequest);
 
         // Simula consulta do banco para buscar Reserva por salaId, data e status
-        given(reservaRepository.findBySalaIdAndDataAndStatusAndIdNot(
+        given(reservaRepository.findBySalaIdAndDataAndStatusInAndIdNot(
                 reservaRequest.salaId(),
                 reservaRequest.data(),
-                StatusReserva.ATIVA,
+                List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO),
                 reservaId))
                 .willReturn(List.of(reservaConflitante));
 
@@ -1243,10 +1243,10 @@ class ReservaServiceTest {
         given(salaClient.buscarPorId(reservaRequest.salaId())).willReturn(salaRequest);
 
         // Simula consulta do banco para buscar Reserva por salaId, data e status. Com exceção do id da própria reserva.
-        given(reservaRepository.findBySalaIdAndDataAndStatusAndIdNot(
+        given(reservaRepository.findBySalaIdAndDataAndStatusInAndIdNot(
                 reservaRequest.salaId(),
                 reservaRequest.data(),
-                StatusReserva.ATIVA,
+                List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO),
                 reservaId))
                 .willReturn(List.of());
 
