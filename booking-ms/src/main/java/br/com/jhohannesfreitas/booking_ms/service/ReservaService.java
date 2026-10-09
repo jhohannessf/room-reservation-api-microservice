@@ -118,7 +118,7 @@ public class ReservaService {
         validarIntervaloReserva(reservaRequest.horaInicial(), reservaRequest.horaFinal());
         validarHorarioFuncionamento(reservaRequest.horaInicial(), reservaRequest.horaFinal());
         validarConflitoHorarioAtualizacao(reservaRequest.salaId(), reservaRequest.data(),
-                reservaRequest.horaInicial(), reservaRequest.horaFinal(), StatusReserva.ATIVA, id);
+                reservaRequest.horaInicial(), reservaRequest.horaFinal(), id);
         validarCapacidade(reservaRequest.quantidadePessoas(), salaRequest.capacidade());
 
         reserva.atualizar(reservaRequest, usuarioId, salaRequest.id());
@@ -240,9 +240,9 @@ public class ReservaService {
 
     private void validarConflitoHorarioAtualizacao(Long salaId, LocalDate data,
                                                    LocalTime horaInicial, LocalTime horaFinal,
-                                                   StatusReserva status, Long idReserva) {
-        List<Reserva> listaReservas = reservaRepository.findBySalaIdAndDataAndStatusAndIdNot(
-                salaId, data, status, idReserva);
+                                                   Long idReserva) {
+        List<Reserva> listaReservas = reservaRepository.findBySalaIdAndDataAndStatusInAndIdNot(
+                salaId, data, List.of(StatusReserva.ATIVA, StatusReserva.ATIVA_SEM_INTEGRACAO), idReserva);
         for (Reserva reservaExistente : listaReservas) {
             if (reservaExistente.getHoraInicial().isBefore(horaFinal)
                     && reservaExistente.getHoraFinal().isAfter(horaInicial)) {
