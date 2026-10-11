@@ -528,7 +528,7 @@ class ReservaControllerTest {
                 .andExpect(status().isNoContent());
 
         // Prova que o service foi chamado com argumentos certos. Não somente status.
-        then(reservaService).should().deletar(1L, 1L);
+        then(reservaService).should().deletar(id, 1L);
     }
 
     @Test
@@ -574,6 +574,34 @@ class ReservaControllerTest {
         mockMvc.perform(delete("/api/v1/reservas/{id}", id)
                         .with(authentication(createAuthentication())))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Deveria retornar 200 OK ao confirmar reserva sem integração")
+    void deveriaRetornar200AoConfirmarReservaSemIntegracao() throws Exception {
+        // ARRANGE
+        Long id = 5L;
+        Long usuarioId = 1L;
+
+        // ACT + ASSERT
+        mockMvc.perform(patch("/api/v1/reservas/{id}", id)
+                        .with(authentication(createAuthentication())))
+                .andExpect(status().isOk());
+
+        then(reservaService).should().confirmarReservaSemIntegracao(id, usuarioId);
+    }
+
+    @Test
+    @DisplayName("Deveria retornar 401 Unauthorized ao confirmar reserva sem integração")
+    void deveriaRetornar401AoConfirmarReservaSemIntegracao() throws Exception {
+        // ARRANGE
+        Long id = 1L;
+
+        // ACT + ASSERT
+        mockMvc.perform(patch("/api/v1/reservas/{id}", id))
+                .andExpect(status().isUnauthorized());
+
+        then(reservaService).shouldHaveNoInteractions();
     }
 
     // Para usar o .with(authentication(...)) no MockMvc

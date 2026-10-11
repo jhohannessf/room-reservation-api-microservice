@@ -11,7 +11,10 @@ import br.com.jhohannesfreitas.booking_ms.http.UsuarioClient;
 import br.com.jhohannesfreitas.booking_ms.infra.exception.RegraNegocioException;
 import br.com.jhohannesfreitas.booking_ms.integration.AbstractIntegrationTest;
 import br.com.jhohannesfreitas.booking_ms.repository.ReservaRepository;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -200,6 +203,73 @@ public class ReservaServiceIntegrationConflitosHorariosTest extends AbstractInte
         assertAll(
                 () -> assertEquals(LocalTime.of(8, 0), continuaIgual.getHoraInicial()),
                 () -> assertEquals(LocalTime.of(9, 0), continuaIgual.getHoraFinal())
+        );
+    }
+
+    @Test
+    @DisplayName("Deveria lançar conflito 409 Conflict ao atualizar para horário ocupado por reserva ATIVA_SEM_INTEGRACAO")
+    void deveriaLancarConflitoAoAtualizarParaHorarioOcupadoPorReservaSemIntegracao() {
+        // ARRANGE
+        // A reserva que BLOQUEIA o horário 10:00-11:00.
+        persistirReserva(SALA_ID, DATA, LocalTime.of(10, 0), LocalTime.of(11, 0), StatusReserva.ATIVA_SEM_INTEGRACAO);
+
+        // A reserva que será MOVIDA (8:00-9:00, status normal)
+        Reserva reservaDaManha = persistirReserva(
+                SALA_ID, DATA,
+                LocalTime.of(8, 0),
+                LocalTime.of(9, 0),
+                StatusReserva.ATIVA
+        );
+
+        ReservaRequest reservaRequest = new ReservaRequest(
+                SALA_ID,
+                DATA,
+                LocalTime.of(10, 30),
+                LocalTime.of(11, 30),
+                5);
+
+        // ACT
+        RegraNegocioException ex = assertThrows(RegraNegocioException.class,
+                () -> reservaService.atualizar(reservaDaManha.getId(), reservaRequest, USUARIO_ID));
+
+        // ASSERT
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        // O banco mantém o horário original da reserva
+        Reserva continuaIgual = reservaRepository.findById(reservaDaManha.getId()).orElseThrow();
+        assertAll(
+                () -> assertEquals(LocalTime.of(8, 0), continuaIgual.getHoraInicial()),
+                () -> assertEquals(LocalTime.of(9, 0), continuaIgual.getHoraFinal())
+        );
+    }
+
+    @Test
+    @DisplayName("Deve permitir atualizar para horário ocupado apenas por reserva CANCELADA")
+    void devePermitirAtualizarParaHorarioOcupadoPorReservaCancelada() {
+        // ARRANGE
+        // Reserva CANCELADA no 10:00-11:00: não deve bloquear ninguém
+        persistirReserva(SALA_ID, DATA, LocalTime.of(10, 0), LocalTime.of(11, 0), StatusReserva.CANCELADA);
+
+        Reserva reservaDaManha = persistirReserva(
+                SALA_ID, DATA,
+                LocalTime.of(8, 0),
+                LocalTime.of(9, 0),
+                StatusReserva.ATIVA
+        );
+
+        ReservaRequest reservaRequest = new ReservaRequest(
+                SALA_ID,
+                DATA,
+                LocalTime.of(10, 30),
+                LocalTime.of(11, 30),
+                5);
+
+        // ACT + ASSERT
+        assertDoesNotThrow(() -> reservaService.atualizar(reservaDaManha.getId(), reservaRequest, USUARIO_ID));
+
+        Reserva reservaAtualizada = reservaRepository.findById(reservaDaManha.getId()).orElseThrow();
+        assertAll(
+                () -> assertEquals(LocalTime.of(10, 30), reservaAtualizada.getHoraInicial()),
+                () -> assertEquals(LocalTime.of(11, 30), reservaAtualizada.getHoraFinal())
         );
     }
 

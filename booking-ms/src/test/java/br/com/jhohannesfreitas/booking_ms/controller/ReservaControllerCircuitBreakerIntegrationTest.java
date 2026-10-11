@@ -5,9 +5,12 @@ import br.com.jhohannesfreitas.booking_ms.domain.enums.StatusReserva;
 import br.com.jhohannesfreitas.booking_ms.http.SalaClient;
 import br.com.jhohannesfreitas.booking_ms.integration.AbstractIntegrationTest;
 import br.com.jhohannesfreitas.booking_ms.repository.ReservaRepository;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -24,11 +27,12 @@ import java.time.LocalTime;
 import java.util.Date;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.clearInvocations;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,6 +45,9 @@ class ReservaControllerCircuitBreakerIntegrationTest extends AbstractIntegration
     @Autowired
     private ReservaRepository reservaRepository;
 
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakerRegistry;
+
     @MockitoBean
     private SalaClient salaClient;
 
@@ -50,9 +57,16 @@ class ReservaControllerCircuitBreakerIntegrationTest extends AbstractIntegration
     @Value("${jwt.key}")
     private String jwtKey;
 
+    @BeforeEach
+    void setUp() {
+        atualizaSala().reset();
+        clearInvocations(rabbitTemplate);   // descarta o ruído da subida do contexto
+    }
+
     @AfterEach
     void tearDown() {
         reservaRepository.deleteAll();
+        atualizaSala().reset();
     }
 
     @Test
@@ -85,6 +99,23 @@ class ReservaControllerCircuitBreakerIntegrationTest extends AbstractIntegration
         then(rabbitTemplate).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("Deveria retornar 404 ao confirmar reserva inexistente, mesmo passando pelo fallback do Circuit Breaker")
+    void deveriaRetornar404AoConfirmarReservaInexistente() throws Exception {
+        // ARRANGE
+        Long usuarioId = 1L;
+        Long idInexistente = 999_999L;
+
+        // ACT + ASSERT
+        mockMvc.perform(patch("/api/v1/reservas/{id}", idInexistente)
+                .header("Authorization", "Bearer " + gerarTokenValido(usuarioId, "jhou@email.com")))
+                .andExpect(status().isNotFound());
+
+        then(salaClient).shouldHaveNoInteractions();
+        then(rabbitTemplate).shouldHaveNoInteractions();
+
+    }
+
     private String gerarTokenValido(Long usuarioId, String email) {
         SecretKey signingKey = Keys.hmacShaKeyFor(jwtKey.getBytes());
         Date agora = new Date();
@@ -98,5 +129,9 @@ class ReservaControllerCircuitBreakerIntegrationTest extends AbstractIntegration
                 .expiration(expiracao)
                 .signWith(signingKey)
                 .compact();
+    }
+
+    private CircuitBreaker atualizaSala() {
+        return circuitBreakerRegistry.circuitBreaker("atualizaSala");
     }
 }
