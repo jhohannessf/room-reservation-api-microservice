@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
         ErrorResponse response = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "Requisição inválida",
-                "Status inválido. Valores permitidos: LIVRE, OCUPADA",
+                "Corpo da requisição inválido ou ilegível. Verifique o formato do JSON e os valores informados.",
                 LocalDateTime.now()
         );
 
