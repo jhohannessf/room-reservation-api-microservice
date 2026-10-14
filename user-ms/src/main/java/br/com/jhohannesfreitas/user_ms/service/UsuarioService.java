@@ -1,6 +1,5 @@
 package br.com.jhohannesfreitas.user_ms.service;
 
-import br.com.jhohannesfreitas.user_ms.domain.entity.Perfil;
 import br.com.jhohannesfreitas.user_ms.domain.entity.Usuario;
 import br.com.jhohannesfreitas.user_ms.domain.enums.PerfilNome;
 import br.com.jhohannesfreitas.user_ms.domain.enums.ProvedorLogin;
@@ -33,14 +32,14 @@ public class UsuarioService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public List<UsuarioResponse> listarTodosUsuarios() {
+    public List<UsuarioResponse> listar() {
         return usuarioRepository.findAll()
                 .stream()
                 .map(UsuarioMapper::toDto)
                 .toList();
     }
 
-    public Page<UsuarioResponse> listarUsuariosPorPagina(Pageable pageable) {
+    public Page<UsuarioResponse> listarPaginado(Pageable pageable) {
         return usuarioRepository.findAll(pageable)
                 .map(UsuarioMapper::toDto);
     }
