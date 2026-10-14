@@ -74,6 +74,9 @@ public class TokenProvider {
         return getClaimsFromToken(token).getSubject();
     }
 
+    public List<String> getAuthoritiesFromToken(String token) {
+        return getClaimsFromToken(token).get("authorities", List.class);
+    }
 
     private Claims getClaimsFromToken(String token) {
         //validar assinatura
