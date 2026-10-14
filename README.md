@@ -130,19 +130,19 @@ room-reservation-api-microservice/
 │   └── Dockerfile
 ├── user-ms/                       # autenticação, usuários, perfis, 2FA
 │   ├── Dockerfile
-│   └── src/test/                  # UsuarioServiceTest, UsuarioMapperTest, integration/AbstractIntegrationTest (base criada, ainda sem testes)
+│   └── src/test/                  # UsuarioServiceTest, UsuarioControllerTest, UsuarioMapperTest, UsuarioRepositoryTest, TokenProviderTest, JwtAuthenticationFilterTest, integration/AbstractIntegrationTest
 ├── room-ms/                       # salas — consumidor Kafka/RabbitMQ
 │   ├── Dockerfile
 │   ├── src/main/java/.../messaging/
 │   │   ├── kafka/                 # ReservaListenerKafka
 │   │   └── rabbitmq/              # RabbitMQConfig, ReservaListenerRabbitMQ
-│   └── src/test/                  # SalaServiceTest, SalaMapperTest, SalaControllerTest, SalaRepositoryTest, integration/ (AbstractIntegrationTest + testes dos listeners Kafka/RabbitMQ)
+│   └── src/test/                  # SalaServiceTest, SalaMapperTest, SalaControllerTest, SalaRepositoryTest, TokenProviderTest, JwtAuthenticationFilterTest, integration/ (AbstractIntegrationTest + testes dos listeners Kafka/RabbitMQ)
 ├── booking-ms/                    # reservas — orquestra user-ms + room-ms via Feign (Circuit Breaker) e publica eventos
 │   ├── Dockerfile
 │   ├── src/main/java/.../messaging/
 │   │   ├── kafka/                 # KafkaConfig (tópico booking-created)
 │   │   └── rabbitmq/              # RabbitMQConfig
-│   └── src/test/                  # ReservaServiceTest, ReservaMapperTest, ReservaControllerTest, ReservaRepositoryTest, ReservaService*IntegrationTest, http/ (FeignErrorDecoderTest, SalaClientFallbackTest), integration/ (AbstractIntegrationTest + mensageria e Circuit Breaker)
+│   └── src/test/                  # ReservaServiceTest, ReservaMapperTest, ReservaControllerTest, ReservaRepositoryTest, ReservaService*IntegrationTest, http/ (FeignErrorDecoderTest, SalaClientFallbackTest), infra/config/ (TokenProviderTest, JwtAuthenticationFilterTest), integration/ (AbstractIntegrationTest + mensageria e Circuit Breaker)
 └── README.md
 ```
 
@@ -273,7 +273,7 @@ Todas as rotas abaixo passam pelo `gateway-ms` (porta `8080`), prefixadas pelo n
 | POST | `/api/v1/auth/2fa/totp/confirm` | Confirma o primeiro código TOTP e ativa a 2FA | Autenticado |
 | GET | `/oauth2/authorization/google` \| `/github` | Início do login social | Público |
 | POST | `/api/v1/auth/logout` | Logout stateless (no-op — sem sessão para invalidar no servidor; a invalidação real é o cliente descartar o JWT) | Público |
-| GET/POST/PUT/DELETE | `/api/v1/usuarios/**` | CRUD de usuários, perfis e ativação de 2FA por e-mail | Autenticado / dono do recurso / `ADMINISTRADOR` |
+| GET/POST/PUT/PATCH/DELETE | `/api/v1/usuarios/**` | CRUD de usuários, perfis e ativação de 2FA por e-mail | Autenticado / dono do recurso / `ADMINISTRADOR` |
 
 ### `room-ms` (prefixo `/room-ms`)
 
@@ -322,11 +322,18 @@ Todas as rotas abaixo passam pelo `gateway-ms` (porta `8080`), prefixadas pelo n
 
 ## Testes
 
-O projeto soma **191 métodos de teste** em três camadas — **91 unitários** (Mockito), **52 de camada web** (MockMvc) e **45 de integração** (Testcontainers) — mais 3 testes de carregamento de contexto nos serviços de infraestrutura (`server-ms`, `config-server-ms` e `gateway-ms`). A contagem considera os métodos de cada classe concreta, sem multiplicar o `contextLoads` herdado de `AbstractIntegrationTest`. Um `@ParameterizedTest` conta como um método, mesmo executando um caso para cada linha de `@CsvSource`.
+O projeto soma **280 métodos de teste** em três camadas — **135 unitários** (JUnit 5 e Mockito, sem Spring), **92 de camada web** (MockMvc) e **53 de integração** (Testcontainers) — mais 3 testes de carregamento de contexto nos serviços de infraestrutura (`server-ms`, `config-server-ms` e `gateway-ms`). A contagem considera os métodos de cada classe concreta, sem multiplicar o `contextLoads` herdado de `AbstractIntegrationTest`. Um `@ParameterizedTest` conta como um método, mesmo executando um caso para cada linha de `@CsvSource` ou `@ValueSource`.
+
+| Serviço | Unitários | Camada web | Integração | Total |
+|---|---|---|---|---|
+| `user-ms` | 41 | 36 | 8 | 85 |
+| `room-ms` | 31 | 28 | 11 | 70 |
+| `booking-ms` | 63 | 28 | 34 | 125 |
+| **Total** | **135** | **92** | **53** | **280** |
 
 ### Testes unitários
 
-As camadas de serviço e de mapeamento dos três serviços de negócio, mais o cliente HTTP do `booking-ms` (`FeignErrorDecoder` e `SalaClientFallback`), têm testes unitários com **JUnit 5**, **Mockito** (`MockitoExtension`, `BDDMockito` com `given/then`, `ArgumentCaptor`) e **AssertJ**, com nomes descritivos via `@DisplayName`:
+As camadas de serviço e de mapeamento dos três serviços de negócio, o cliente HTTP do `booking-ms` (`FeignErrorDecoder` e `SalaClientFallback`) e a infraestrutura de JWT (`TokenProvider` e `JwtAuthenticationFilter`) dos três serviços têm testes unitários com **JUnit 5**, **Mockito** (`MockitoExtension`, `BDDMockito` com `given/then`, `ArgumentCaptor`) e **AssertJ**, com nomes descritivos via `@DisplayName`:
 
 | Serviço | Classe de teste | Nº de testes | O que cobre |
 |---|---|---|---|
@@ -336,11 +343,13 @@ As camadas de serviço e de mapeamento dos três serviços de negócio, mais o c
 | `booking-ms` | `FeignErrorDecoderTest` | 4 | Tradução dos erros do `room-ms` em `RegraNegocioException` com o mesmo status e a mesma mensagem (`400`, `403`, `404` e `409`); queda no decoder padrão do Feign (`FeignException`) quando o corpo não é um `ErrorResponse` (HTML com `502`) ou não existe (`503`); status HTTP desconhecido (`599`) vira `500` preservando a mensagem |
 | `booking-ms` | `SalaClientFallbackTest` | 2 | `buscarPorId` e `alterarStatusSala` lançam `503` com a mensagem de indisponibilidade do `room-ms` |
 | todos os 3 | `*MapperTest` | 2 cada | Conversão request → entidade e entidade → response |
+| todos os 3 | `TokenProviderTest` | 9 (`user-ms`), 8 (`room-ms`), 7 (`booking-ms`) | Token bem assinado e dentro do prazo é válido; extração de e-mail, id do usuário e perfis; inválido quando expirado, assinado com outra chave, com payload trocado e assinatura original, sem assinatura ou quando o texto nem é um JWT. No `user-ms` e no `room-ms` também a geração do token a partir da `Authentication` (e-mail e *authorities*) e, no `user-ms`, a data de expiração |
+| todos os 3 | `JwtAuthenticationFilterTest` | 8 (`user-ms`), 6 (`room-ms`), 6 (`booking-ms`) | Token válido preenche o contexto de segurança (e-mail e perfis; no `booking-ms` também o id do usuário); a cadeia segue **sem autenticar** quando não há cabeçalho `Authorization`, o token está expirado ou vazio, falta o prefixo `Bearer` ou o formato é inválido. O `user-ms` ainda cobre assinatura inválida e a propagação da exceção quando o usuário não é encontrado |
 
 Para rodar apenas os testes unitários de um serviço:
 
 ```bash
-cd booking-ms && ./mvnw test -Dtest='*ServiceTest,*MapperTest,FeignErrorDecoderTest,SalaClientFallbackTest'
+cd booking-ms && ./mvnw test -Dtest='*ServiceTest,*MapperTest,FeignErrorDecoderTest,SalaClientFallbackTest,TokenProviderTest,JwtAuthenticationFilterTest'
 ```
 
 ### Testes de camada web (MockMvc)
@@ -349,36 +358,40 @@ Testes `@WebMvcTest` sobem **apenas a camada web** (controller + `SecurityConfig
 
 | Serviço | Classe de teste | Nº de testes | O que cobre |
 |---|---|---|---|
-| `booking-ms` | `ReservaControllerTest` | 26 | Consultas (lista, paginada, por sala e intervalo, por id) com `200`/`401`/`404`; `POST`, `PUT` e `DELETE` com `201`/`200`/`204`; `PATCH /{id}` (confirmação manual) com `200` e `401`; `400` para corpo inválido; `401` sem token; `403` quando o usuário não é o dono; `404` e `409` propagados do service. O `404` do `PATCH` fica no teste de integração do Circuit Breaker, com o service real: o `PATCH` é protegido por `@CircuitBreaker` direto no controller, e o fallback responde `200` quando o service é mockado |
-| `room-ms` | `SalaControllerTest` | 26 | **Todos os endpoints**: consultas (lista, paginada, por id) com `200`/`401`/`404`; `POST`/`PUT`/`DELETE` restritos a `ADMINISTRADOR` com `201`/`200`/`204`, `403` para perfil sem permissão, `400` para corpo inválido, `401` sem token, `404` e `409` (número de sala duplicado) propagados do service; `PATCH /alterar-status/{id}` com `200`/`400`/`401`/`404` |
+| `booking-ms` | `ReservaControllerTest` | 28 | Consultas (lista, paginada, por sala e intervalo, por id) com `200`/`401`/`404`; `POST`, `PUT` e `DELETE` com `201`/`200`/`204`; `PATCH /{id}` (confirmação manual) com `200` e `401`; `400` para corpo inválido; `401` sem token; `403` quando o usuário não é o dono; `404` e `409` propagados do service. O `404` do `PATCH` fica no teste de integração do Circuit Breaker, com o service real: o `PATCH` é protegido por `@CircuitBreaker` direto no controller, e o fallback responde `200` quando o service é mockado. Também cobre o `400` com mensagem genérica para JSON inválido ou data ilegível (`HttpMessageNotReadableException`) |
+| `room-ms` | `SalaControllerTest` | 28 | **Todos os endpoints**: consultas (lista, paginada, por id) com `200`/`401`/`404`; `POST`/`PUT`/`DELETE` restritos a `ADMINISTRADOR` com `201`/`200`/`204`, `403` para perfil sem permissão, `400` para corpo inválido, `401` sem token, `404` e `409` (número de sala duplicado) propagados do service; `PATCH /alterar-status/{id}` com `200`/`400`/`401`/`404`; `400` com mensagem genérica para JSON inválido ou status fora de `LIVRE`/`OCUPADA` (`HttpMessageNotReadableException`) |
+| `user-ms` | `UsuarioControllerTest` | 36 | **Todos os endpoints de `UsuarioController`**: consultas (lista, paginada, por id) com `200`/`401`/`404`; `POST` com `201`/`400`/`401`/`409` (e-mail duplicado); `PUT` com `200`/`400`/`401`/`403` (id diferente do usuário autenticado)/`404`/`409`; `DELETE` com `204`/`401`/`403`/`404`; `PATCH /adicionar-perfil/{id}` com `200`/`400`/`401`/`403` (só `ADMINISTRADOR`)/`404`/`409`; `PATCH /remover-perfil/{id}` com `204`/`400`/`401`/`403`/`404`; `PATCH /ativar-a2f/{id}` com `200`/`401`/`403`/`404`. Exercita as regras de `@PreAuthorize` de dono do recurso e de `ADMINISTRADOR` |
 
 ```bash
 cd booking-ms && ./mvnw test -Dtest='ReservaControllerTest'
 cd room-ms && ./mvnw test -Dtest='SalaControllerTest'
+cd user-ms && ./mvnw test -Dtest='UsuarioControllerTest'
 ```
 
 ### Cobertura por serviço
 
 | Serviço | Unitário | Camada web | Integração (Testcontainers) |
 |---|---|---|---|
-| `user-ms` | ✅ `UsuarioService`, mapper | ❌ pendente | 🟡 `AbstractIntegrationTest` criado, mas sem nenhum teste usando |
-| `room-ms` | ✅ `SalaService`, mapper | ✅ todos os endpoints de `SalaController` | ✅ repositório, listeners Kafka/RabbitMQ e DLQ |
-| `booking-ms` | ✅ `ReservaService`, mapper | ✅ CRUD de reservas e `PATCH` de confirmação (`200`/`401`) | ✅ repositório, mensageria, conflito de horário e Circuit Breaker |
+| `user-ms` | ✅ `UsuarioService`, mapper, `TokenProvider`, `JwtAuthenticationFilter` · ❌ `AuthService`, `CodigoA2fService`, `TotpService`, `EmailService`, `UserDetailsServiceImpl`, `OAuth2LoginSuccessHandler` | 🟡 `UsuarioController` ✅ (todos os endpoints) · `AuthController` e `OAuth2Controller` ❌ | 🟡 `UsuarioRepository` ✅ · `PerfilRepository`, `CodigoA2fRepository`, migrations e fluxo de autenticação ❌ |
+| `room-ms` | ✅ `SalaService`, mapper, `TokenProvider`, `JwtAuthenticationFilter` | ✅ todos os endpoints de `SalaController` | ✅ repositório, listeners Kafka/RabbitMQ e DLQ |
+| `booking-ms` | ✅ `ReservaService`, mapper, `FeignErrorDecoder`, `SalaClientFallback`, `TokenProvider`, `JwtAuthenticationFilter` | ✅ todos os endpoints de `ReservaController`, exceto `GET /porta` (de propósito: existe só para demonstrar o *load balancing*) | ✅ repositório, mensageria, conflito de horário e Circuit Breaker |
 | `gateway-ms`, `server-ms`, `config-server-ms` | — | — | apenas o teste de carregamento de contexto |
 
 > **O que ainda falta testar**, por prioridade:
-> - **Alta — segurança e regra de negócio no `user-ms`:** `AuthService` (registro, login sem 2FA, com 2FA por e-mail e por TOTP; código inválido, expirado ou já utilizado; ativação do TOTP em duas etapas), `AuthController` e `UsuarioController` (`@WebMvcTest`, incluindo as regras de `@PreAuthorize` de dono do recurso e `ADMINISTRADOR`).
-> - **Alta — JWT nos três serviços:** `TokenProvider` e `JwtAuthenticationFilter` não têm teste direto; hoje só são exercitados indiretamente (caminho sem token e token válido). Falta cobrir token expirado, adulterado e cabeçalho sem `Bearer`.
-> - **Média:** `CodigoA2fService`, `TotpService`, `EmailService`, `UserDetailsServiceImpl`, `OAuth2LoginSuccessHandler` e os handlers de `GlobalExceptionHandler` ainda não exercitados (`MethodArgumentTypeMismatchException`, `HttpMessageNotReadableException` e a exceção genérica `500`); mais a conclusão da base de Testcontainers do `user-ms`.
-> - **Baixa:** rotas do `gateway-ms`, leitura do `config-repo` pelo `config-server-ms` e relatório de cobertura (JaCoCo). Hoje `gateway-ms`, `server-ms` e `config-server-ms` só têm o teste de carregamento de contexto.
+> - **Alta — fluxo de autenticação do `user-ms` (o maior buraco restante):** `AuthService` (registro; login sem 2FA, com 2FA por e-mail e por TOTP; `verificarA2f` com código inválido, expirado ou já utilizado; ativação do TOTP em duas etapas) e `AuthController` (`@WebMvcTest`: rotas públicas e `401` em `2fa/totp/setup` e `2fa/totp/confirm` sem token).
+> - **Média — componentes de apoio da autenticação:** `CodigoA2fService`, `TotpService`, `EmailService` (com `JavaMailSender` mockado), `UserDetailsServiceImpl` e `OAuth2LoginSuccessHandler` (usuário novo x existente, e-mail primário do GitHub, provedor não suportado).
+> - **Média — base de integração do `user-ms`:** criar o `src/test/resources/application.properties` próprio, remover os containers de RabbitMQ e Kafka que o serviço não usa e cobrir `PerfilRepository`, `CodigoA2fRepository`, as migrations do Flyway e o fluxo cadastro → login → 2FA → JWT contra MySQL real.
+> - **Média — `GlobalExceptionHandler`:** `HttpMessageNotReadableException` já é testada em `booking-ms` e `room-ms`; falta no `user-ms` (cujo handler ainda devolve a mensagem específica de perfil para qualquer corpo ilegível) e, nos três serviços, `MethodArgumentTypeMismatchException` (ex.: `GET /{id}` com texto no lugar do número) e a exceção genérica (`500`).
+> - **Média — propagação do JWT via Feign:** o `RequestInterceptor` do `FeingConfig` (cabeçalho `Authorization: Bearer ...` nas chamadas do `booking-ms` ao `room-ms` e ao `user-ms`) não tem teste.
+> - **Baixa:** rotas do `gateway-ms`, leitura do `config-repo` pelo `config-server-ms`, relatório de cobertura (JaCoCo) e um teste de integração do `SalaService` com banco real no `room-ms`.
 >
 > Tudo isso está listado como itens abertos no [Roadmap](#roadmap).
 
 ### Testes de integração (Testcontainers)
 
-`booking-ms` e `room-ms` têm cada um um `integration/AbstractIntegrationTest`: uma classe `@SpringBootTest` que sobe **MySQL 8.0**, **RabbitMQ (`rabbitmq:3-management`)** e **Kafka (`confluentinc/cp-kafka:7.5.0`)** em containers descartáveis e injeta as URLs deles no contexto do Spring via `@DynamicPropertySource` (datasource, `spring.rabbitmq.*` e `spring.kafka.bootstrap-servers`). Usa o **padrão singleton**: os containers são iniciados num bloco `static`, uma única vez por JVM, e compartilhados por todas as classes de teste (o Ryuk os remove ao final). O schema vem do Flyway e é validado pelo Hibernate (`ddl-auto=validate`), ou seja, os testes rodam contra o mesmo schema de produção. A própria classe base traz um `contextLoads`, herdado por todas as subclasses, que prova que o contexto sobe conectado aos três containers.
+`booking-ms`, `room-ms` e `user-ms` têm cada um um `integration/AbstractIntegrationTest`: uma classe `@SpringBootTest` que sobe **MySQL 8.0**, **RabbitMQ (`rabbitmq:3-management`)** e **Kafka (`confluentinc/cp-kafka:7.5.0`)** em containers descartáveis e injeta as URLs deles no contexto do Spring via `@DynamicPropertySource` (datasource, `spring.rabbitmq.*` e `spring.kafka.bootstrap-servers`). Usa o **padrão singleton**: os containers são iniciados num bloco `static`, uma única vez por JVM, e compartilhados por todas as classes de teste (o Ryuk os remove ao final). O schema vem do Flyway e é validado pelo Hibernate (`ddl-auto=validate`), ou seja, os testes rodam contra o mesmo schema de produção. A própria classe base traz um `contextLoads`, herdado por todas as subclasses, que prova que o contexto sobe conectado aos três containers.
 
-No `user-ms` já existe um `AbstractIntegrationTest` (mesmo padrão singleton), mas ele ainda não tem subclasses nem `src/test/resources/application.properties` próprio — enquanto isso, o `user-ms` não tem testes de integração em execução (ver [Roadmap](#roadmap)).
+No `user-ms`, o `AbstractIntegrationTest` (mesmo padrão singleton) já é usado pelo `UsuarioRepositoryTest`, mas o serviço ainda não tem `src/test/resources/application.properties` próprio: sem ele, o contexto de teste parte do `application.properties` de `src/main`, que busca o restante da configuração (como `jwt.key`) no Config Server. A classe base também sobe containers de RabbitMQ e Kafka que o `user-ms` não usa (ver [Roadmap](#roadmap)).
 
 Rodar esses testes exige o Docker em execução. Se o Testcontainers não encontrar o daemon automaticamente (por exemplo, Docker Desktop no Windows), crie o arquivo `~/.testcontainers.properties` com `docker.host=tcp://localhost:2375` e habilite a opção de expor o daemon em `tcp://localhost:2375` nas configurações do Docker Desktop.
 
@@ -393,10 +406,11 @@ Rodar esses testes exige o Docker em execução. Se o Testcontainers não encont
 | `room-ms` | `SalaRepositoryTest` | Queries derivadas do repositório contra o MySQL real: `existsByNumero` (verdadeiro e falso) e `findByNumeroAndIdNot` (ignora o próprio id e encontra outra sala com o mesmo número) |
 | `room-ms` | `ReservaListenerKafkaIntegrationTest` | Consumidor do tópico `booking-created`: desserialização do JSON, efeito colateral (log da reserva) e processamento de várias mensagens em sequência |
 | `room-ms` | `ReservaListenerRabbitMQIntegrationTest` | Consumidores das filas `reserva.detalhes-status-sala` (exchange direta) e `reserva.detalhes-sala` (fanout), com validação do log, e **Dead Letter Queue**: mensagem inválida é rejeitada e vai parar em `reserva.detalhes-sala-dlq` |
+| `user-ms` | `UsuarioRepositoryTest` | Queries derivadas de `UsuarioRepository` contra o MySQL real: `findByEmail`, `findByEmailIgnoreCase`, `existsByEmailIgnoreCase` e `existsByEmailAndIdNot` (com e sem resultado; ignora o próprio id) |
 
 Boas práticas adotadas para manter os testes determinísticos:
 
-- **Dados isolados**: `reservaRepository.deleteAll()` no `@AfterEach`; os testes de mensageria usam `salaId` aleatório (para filtrar só os próprios eventos no tópico compartilhado) e filas RabbitMQ únicas, removidas ao final; a DLQ é esvaziada antes e depois de cada teste.
+- **Dados isolados**: `reservaRepository.deleteAll()` (e `usuarioRepository.deleteAll()` no `user-ms`) no `@AfterEach`; os testes de mensageria usam `salaId` aleatório (para filtrar só os próprios eventos no tópico compartilhado) e filas RabbitMQ únicas, removidas ao final; a DLQ é esvaziada antes e depois de cada teste.
 - **Consumidor Kafka de teste** com `group.id` único e `auto.offset.reset=earliest`, para nunca depender de offsets de execuções anteriores.
 - **Espera ativa, nunca `Thread.sleep`**: efeitos assíncronos dos consumidores são validados com `Awaitility` (`await().atMost(...)`) e `Mockito.timeout(...)`.
 - **Efeito colateral observável**: como os listeners hoje só registram a reserva no console, o log é capturado pela classe auxiliar `SaidaConsole` (um *tee* sobre `System.out`) e validado.
@@ -408,7 +422,8 @@ Para rodar só os testes de integração de um serviço:
 
 ```bash
 cd booking-ms && ./mvnw test -Dtest='*IntegrationTest,ReservaRepositoryTest'
-cd room-ms && ./mvnw test -Dtest='*IntegrationTest'
+cd room-ms && ./mvnw test -Dtest='*IntegrationTest,SalaRepositoryTest'
+cd user-ms && ./mvnw test -Dtest='UsuarioRepositoryTest'
 ```
 
 ## Modelagem de dados
@@ -547,18 +562,22 @@ KAFKA_BOOTSTRAP_SERVERS=       # via Docker Compose já vem fixado como kafka:90
 - [ ] Dar uso real ao evento consumido em `room-ms` (Kafka e RabbitMQ) — hoje ambos os listeners só logam a mensagem recebida; próximo passo natural é atualizar um cache/projeção de disponibilidade de sala
 - [x] Testes de camada web (`@WebMvcTest`) do `ReservaController`, com autenticação simulada e regras de dono do recurso
 - [ ] Testes unitários do fluxo de autenticação do `user-ms`: `AuthService` (login, 2FA por e-mail e TOTP), `CodigoA2fService`, `TotpService`
-- [ ] Testes unitários de JWT: `TokenProvider` (assinatura, expiração, token adulterado) e `JwtAuthenticationFilter` (token válido, expirado, adulterado e sem `Bearer`), nos três serviços
+- [x] Testes unitários de JWT: `TokenProvider` (assinatura, expiração, token adulterado) e `JwtAuthenticationFilter` (token válido, expirado, adulterado e sem `Bearer`), nos três serviços
 - [x] `SalaControllerTest` completo (cadastro/atualização/remoção por `ADMINISTRADOR`, alteração de status, `401`, `403`, `400`, `404` e `409`)
-- [ ] Testes de camada web do `user-ms` (`AuthController` e `UsuarioController`), incluindo as regras de `@PreAuthorize`
+- [x] `UsuarioControllerTest` completo (consultas, cadastro, atualização, remoção, perfis e ativação da 2FA, com `401`, `403`, `400`, `404` e `409` e as regras de `@PreAuthorize`)
+- [ ] Testes de camada web do `AuthController` do `user-ms` (registro, login, verificação da 2FA, setup/confirmação do TOTP e logout)
 - [x] Cobrir o `PATCH /api/v1/reservas/{id}`: `200` e `401` no `ReservaControllerTest`; `404` no `ReservaControllerCircuitBreakerIntegrationTest`, com o service real
 - [x] Alinhar o conflito de horário da **atualização** (`PUT`) com o do cadastro: `validarConflitoHorarioAtualizacao` agora considera `ATIVA` e `ATIVA_SEM_INTEGRACAO` (query `findBySalaIdAndDataAndStatusInAndIdNot`), coberto no `ReservaServiceTest`
 - [x] Teste de integração do conflito de horário na atualização (`PUT`) contra uma reserva `ATIVA_SEM_INTEGRACAO` (e o caso inverso, `CANCELADA`, que não bloqueia), no `ReservaServiceIntegrationConflitosHorariosTest`
 - [x] Testes de repositório contra MySQL real (`ReservaRepositoryTest` e `SalaRepositoryTest`)
-- [ ] Concluir a base de Testcontainers em `user-ms`: o `AbstractIntegrationTest` já existe, mas falta o `src/test/resources/application.properties` (sem Config Server/Eureka, com `jwt.key`, OAuth2 e e-mail de teste), remover os containers de RabbitMQ e Kafka que o `user-ms` não usa e escrever os primeiros testes (migrations Flyway, repositórios e fluxo cadastro → login → 2FA → JWT contra MySQL real)
+- [ ] Concluir a base de Testcontainers em `user-ms`: o `AbstractIntegrationTest` já é usado pelo `UsuarioRepositoryTest`, mas falta o `src/test/resources/application.properties` (sem Config Server/Eureka, com `jwt.key`, OAuth2 e e-mail de teste), remover os containers de RabbitMQ e Kafka que o `user-ms` não usa e cobrir `PerfilRepository`, `CodigoA2fRepository`, as migrations do Flyway e o fluxo cadastro → login → 2FA → JWT contra MySQL real
 - [ ] Testes do `OAuth2LoginSuccessHandler` (usuário novo x existente, e-mail primário do GitHub, provedor não suportado)
 - [x] Testes do `FeignErrorDecoder` e do `SalaClientFallback` (`booking-ms`)
-- [ ] Testes do `GlobalExceptionHandler` nos três serviços: hoje só `RegraNegocioException` e `MethodArgumentNotValidException` são exercitados (indiretamente, pelos `@WebMvcTest`); faltam `MethodArgumentTypeMismatchException`, `HttpMessageNotReadableException` e a exceção genérica (`500`)
+- [x] Handler de `HttpMessageNotReadableException` com mensagem genérica (JSON inválido ou ilegível) em `booking-ms` e `room-ms`, coberto nos `@WebMvcTest`
+- [ ] Aplicar o mesmo handler genérico de `HttpMessageNotReadableException` no `user-ms` (hoje ele responde com a mensagem específica de perfil para qualquer corpo ilegível) e cobrir com teste
+- [ ] Testes do `GlobalExceptionHandler` nos três serviços para `MethodArgumentTypeMismatchException` e a exceção genérica (`500`), ainda não exercitadas
 - [ ] Testes de `EmailService` (com `JavaMailSender` mockado) e `UserDetailsServiceImpl` no `user-ms`
+- [ ] Teste do `RequestInterceptor` do `FeingConfig` (`booking-ms`): propagação do cabeçalho `Authorization: Bearer ...` nas chamadas Feign
 - [ ] Testes de rotas do `gateway-ms` (`StripPrefix` e `X-Forwarded-Prefix`) e de leitura do `config-repo` pelo `config-server-ms`
 - [ ] Relatório de cobertura com JaCoCo
 - [ ] Healthchecks via Spring Boot Actuator em todos os serviços de negócio, para o `docker-compose.yml` poder usar `service_healthy` em vez de `service_started` também entre os microsserviços (hoje o Actuator existe só no `booking-ms`, e `service_healthy` só é usado para RabbitMQ e Kafka)
