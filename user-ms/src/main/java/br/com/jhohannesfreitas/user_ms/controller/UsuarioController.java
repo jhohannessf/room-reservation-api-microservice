@@ -42,12 +42,11 @@ public class UsuarioController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de usuários retornada com sucesso"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @GetMapping
     public ResponseEntity<List<UsuarioResponse>> listar(){
-        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.listarTodosUsuarios());
+        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.listar());
     }
 
     @Operation(
@@ -67,12 +66,11 @@ public class UsuarioController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de usuários retornada com sucesso por página"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @GetMapping("/listar-paginado")
     public ResponseEntity<Page<UsuarioResponse>> listarPaginado(Pageable pageable){
-        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.listarUsuariosPorPagina(pageable));
+        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.listarPaginado(pageable));
     }
 
     @Operation(
@@ -88,7 +86,6 @@ public class UsuarioController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de usuários retornada com sucesso"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Não encontrado")
     })
     @GetMapping("/{id}")
@@ -111,7 +108,6 @@ public class UsuarioController {
             @ApiResponse(responseCode = "201", description = "Usuário cadastrado com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "409", description = "Já existe um usuário cadastrado com este e-mail")
     })
     @PostMapping
@@ -138,6 +134,7 @@ public class UsuarioController {
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado"),
             @ApiResponse(responseCode = "409", description = "Já existe outro usuário cadastrado com este e-mail")
     })
+    @PreAuthorize("#id == authentication.principal.id or hasRole('ADMINISTRADOR')") //O id recebido na URL deve ser igual ao ID do usuário autenticado OU o usuário possui a ROLE_ADMINISTRADOR.
     @PutMapping("/{id}")
     public ResponseEntity<UsuarioResponse> atualizar(@PathVariable Long id, @Valid @RequestBody UsuarioRequest usuarioRequest){
         return ResponseEntity.status(HttpStatus.OK).body(usuarioService.atualizar(id, usuarioRequest));
@@ -159,7 +156,7 @@ public class UsuarioController {
             @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado")
     })
-    @PreAuthorize("#id == authentication.principal.id or hasRole('ADMINISTRADOR')") //O id recebido na URL deve ser igual ao ID do usuário autenticado OU OU o usuário possui a role ADMINISTRADOR.
+    @PreAuthorize("#id == authentication.principal.id or hasRole('ADMINISTRADOR')") //O id recebido na URL deve ser igual ao ID do usuário autenticado OU usuário possui a ROLE_ADMINISTRADOR.
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Long id){
         usuarioService.deletar(id);
@@ -179,6 +176,7 @@ public class UsuarioController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Perfil no usuário adicionado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Perfil não encontrado")
@@ -202,14 +200,16 @@ public class UsuarioController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Perfil no usuário removido com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Perfil não encontrado")
     })
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @PatchMapping("/remover-perfil/{id}")
-    public ResponseEntity<UsuarioResponse> removerPerfil(@PathVariable Long id, @Valid @RequestBody PerfilRequest perfilRequest){
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(usuarioService.removerPerfil(id, perfilRequest));
+    public ResponseEntity<Void> removerPerfil(@PathVariable Long id, @Valid @RequestBody PerfilRequest perfilRequest){
+        usuarioService.removerPerfil(id, perfilRequest);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(
@@ -223,7 +223,7 @@ public class UsuarioController {
                 """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "A2F foi adicionado com sucesso para o usuário"),
+            @ApiResponse(responseCode = "200", description = "A2F foi adicionado com sucesso para o usuário"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado")

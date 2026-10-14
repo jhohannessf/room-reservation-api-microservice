@@ -179,7 +179,6 @@ public class SalaController {
                 - A sala deve existir.
                 - O Status informado deve estar cadastrado.
                 - Necessário autenticação do usuário com token JWT.
-                - Apenas perfil administrador para usuários podem atualizar salas.
                 """
     )
     @ApiResponses(value = {
