@@ -2,8 +2,12 @@ package br.com.jhohannesfreitas.user_ms.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.RabbitMQContainer;
@@ -11,6 +15,16 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 public abstract class AbstractIntegrationTest {
+
+    @MockitoBean
+    protected OAuth2AuthorizedClientService authorizedClientService;
+
+    @MockitoBean
+    protected JavaMailSender javaMailSender;
+
+    @MockitoBean
+    protected ClientRegistrationRepository clientRegistrationRepository;
+
 
     // Padrão singleton: sem @Container e sem @Testcontainers.
     // Os containers sobem UMA vez por JVM e são compartilhados por todas as classes de teste.

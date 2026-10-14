@@ -23,7 +23,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -70,7 +69,7 @@ class UsuarioServiceTest {
         given(usuarioRepository.findAll()).willReturn(List.of(usuario));
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        List<UsuarioResponse> listResponse = usuarioService.listarTodosUsuarios();
+        List<UsuarioResponse> listResponse = usuarioService.listar();
         UsuarioResponse usuarioResponse = listResponse.get(0);
 
         //ASSERT (VERIFICAR) - Verifica se o resultado obtido após a ação está de acordo com o que se esperava do teste
@@ -100,7 +99,7 @@ class UsuarioServiceTest {
         given(usuarioRepository.findAll()).willReturn(List.of());
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        List<UsuarioResponse> listResponse = usuarioService.listarTodosUsuarios();
+        List<UsuarioResponse> listResponse = usuarioService.listar();
 
         //ASSERT (VERIFICAR) - Verifica se o resultado obtido após a ação está de acordo com o que se esperava do teste
         // 1. Verificação de comportamento (Behavior Verification): Você verifica que determinadas chamadas aconteceram.
@@ -137,7 +136,7 @@ class UsuarioServiceTest {
         given(usuarioRepository.findAll(pageable)).willReturn(page);
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        Page<UsuarioResponse> usuarioResponse = usuarioService.listarUsuariosPorPagina(pageable);
+        Page<UsuarioResponse> usuarioResponse = usuarioService.listarPaginado(pageable);
         UsuarioResponse primeiroUsuarioResponse = usuarioResponse.getContent().getFirst();
         UsuarioResponse segundoUsuarioResponse = usuarioResponse.getContent().get(1);
 
@@ -189,7 +188,7 @@ class UsuarioServiceTest {
         given(usuarioRepository.findAll(pageable)).willReturn(page);
 
         //ACT (AGIR) - A ação que se deseja testar é executada (método)
-        Page<UsuarioResponse> usuarioResponse = usuarioService.listarUsuariosPorPagina(pageable);
+        Page<UsuarioResponse> usuarioResponse = usuarioService.listarPaginado(pageable);
 
         //ASSERT (VERIFICAR) - Verifica se o resultado obtido após a ação está de acordo com o que se esperava do teste
         // 1. Verificação de comportamento (Behavior Verification): Você verifica que determinadas chamadas aconteceram.

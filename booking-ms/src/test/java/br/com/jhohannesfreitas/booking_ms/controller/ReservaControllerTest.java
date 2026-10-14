@@ -45,6 +45,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfiguration.class, JwtAuthenticationFilter.class, TokenProvider.class})
 class ReservaControllerTest {
 
+    private static final String MENSAGEM_CORPO_ILEGIVEL = "Corpo da requisição inválido ou ilegível. Verifique o formato do JSON e os valores informados.";
+
     @MockitoBean
     private ReservaService reservaService;
 
@@ -602,6 +604,38 @@ class ReservaControllerTest {
                 .andExpect(status().isUnauthorized());
 
         then(reservaService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Deveria retornar 400 com mensagem genérica quando a data da requisição for ilegível")
+    void deveriaRetornar400QuandoCorpoForIlegivel() throws Exception {
+        String jsonComDataInvalida = """
+            {"salaId":10,"data":"31/12/2026","horaInicial":"10:00","horaFinal":"11:00"}
+            """;
+
+        mockMvc.perform(post("/api/v1/reservas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonComDataInvalida)
+                        .with(authentication(createAuthentication())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(MENSAGEM_CORPO_ILEGIVEL))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Requisição inválida"));
+    }
+
+    @Test
+    @DisplayName("Deveria retornar 400 com mensagem genérica quando o json for inválido")
+    void deveriaRetornar400QuandoJsonForInvalido() throws Exception {
+        String jsonInvalido = "{ isto não é um json";
+
+        mockMvc.perform(post("/api/v1/reservas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonInvalido)
+                        .with(authentication(createAuthentication())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(MENSAGEM_CORPO_ILEGIVEL))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Requisição inválida"));
     }
 
     // Para usar o .with(authentication(...)) no MockMvc

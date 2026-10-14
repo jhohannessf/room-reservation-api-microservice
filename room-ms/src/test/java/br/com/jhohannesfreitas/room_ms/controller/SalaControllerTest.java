@@ -44,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfiguration.class, JwtAuthenticationFilter.class, TokenProvider.class})
 class SalaControllerTest {
 
+    private static final String MENSAGEM_CORPO_ILEGIVEL = "Corpo da requisição inválido ou ilegível. Verifique o formato do JSON e os valores informados.";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -83,7 +85,7 @@ class SalaControllerTest {
     }
 
     @Test
-    @DisplayName("Deveria retornar 200 OK quando listar salas por página")
+    @DisplayName("Deveria retornar 200 OK quando listar salas por páginas")
     void deveriaRetornar200QuandoListarSalasPorPaginas() throws Exception {
         //ARRANGE
         SalaResponse salaResponse = createSalaResponse(1L, 1);
@@ -146,7 +148,7 @@ class SalaControllerTest {
     }
 
     @Test
-    @DisplayName("Deveria retornar 404 NOT FOUND quando sala não for encontrada por id")
+    @DisplayName("Deveria retornar 404 Not found quando sala não for encontrada por id")
     void deveriaRetornar404QuandoSalaNaoForEncontradaPorId() throws Exception {
         //ARRANGE
         SalaResponse salaResponse = createSalaResponse(1L, 1);
@@ -447,7 +449,7 @@ class SalaControllerTest {
     }
 
     @Test
-    @DisplayName("Deveria retornar status 401 Unauthorized ao deletar sala sem autenticação")
+    @DisplayName("Deveria retornar status 401 Unauthorized ao deletar sala quando não autenticado")
     void deveriaRetornar401AoDeletarSalaQuandoNaoAutenticado() throws Exception {
         // ARRANGE
         Long id = 1L;
@@ -458,7 +460,7 @@ class SalaControllerTest {
     }
 
     @Test
-    @DisplayName("Deveria retornar 403 Forbidden ao deletar sala quando não autorizado (Perfil Administrador)")
+    @DisplayName("Deveria retornar 403 Forbidden ao deletar sala quando não autorizado (ROLE_ADMINISTRADOR)")
     void deveriaRetornar403AoDeletarSalaQuandoNaoAutorizado() throws Exception {
         // ARRANGE
         Long id = 2L;
@@ -553,16 +555,6 @@ class SalaControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // Para usar o .with(authentication(...)) no MockMvc
-    private Authentication createAuthentication() {
-        UserPrincipal userPrincipal = new UserPrincipal("teste@email.com");
-        return new UsernamePasswordAuthenticationToken(
-                userPrincipal,
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_ESTUDANTE"))
-        );
-    }
-
     @Test
     @DisplayName("Deveria retornar 404 Not Found ao alterar status da sala quando não encontrada")
     void deveriaRetornar404AoAlterarStatusSalaQuandoNaoEncontrada() throws Exception {
@@ -586,6 +578,38 @@ class SalaControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("Deveria retornar 400 com mensagem genérica quando o json status for inválido")
+    void deveriaRetornar400QuandoJsonStatusForInvalido() throws Exception {
+        String jsonStatusInvalido = """
+            {"status":"INVALIDO"}
+            """;
+
+        mockMvc.perform(patch("/api/v1/salas/alterar-status/{id}", 10)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonStatusInvalido)
+                        .with(authentication(createAuthentication())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(MENSAGEM_CORPO_ILEGIVEL))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Requisição inválida"));
+    }
+
+    @Test
+    @DisplayName("Deveria retornar 400 com mensagem genérica quando o json for inválido")
+    void deveriaRetornar400QuandoJsonForInvalido() throws Exception {
+        String jsonInvalido = "{ isto não é um json";
+
+        mockMvc.perform(patch("/api/v1/salas/alterar-status/{id}", 10)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonInvalido)
+                        .with(authentication(createAuthentication())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(MENSAGEM_CORPO_ILEGIVEL))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Requisição inválida"));
+    }
+
     private SalaResponse createSalaResponse(Long id, Integer numero) {
         return new SalaResponse(
                 id,
@@ -594,5 +618,15 @@ class SalaControllerTest {
                 StatusSala.LIVRE
         );
 
+    }
+
+    // Para usar o .with(authentication(...)) no MockMvc
+    private Authentication createAuthentication() {
+        UserPrincipal userPrincipal = new UserPrincipal("teste@email.com");
+        return new UsernamePasswordAuthenticationToken(
+                userPrincipal,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_ESTUDANTE"))
+        );
     }
 }
