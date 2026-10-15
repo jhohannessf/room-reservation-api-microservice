@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
         ErrorResponse response = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "Requisição inválida",
-                "Perfil inválido. Valores permitidos: ESTUDANTE, ADMINISTRADOR, INSTRUTOR, MODERADOR",
+                "Corpo da requisição inválido ou ilegível. Verifique o formato do JSON e os valores informados.",
                 LocalDateTime.now()
         );
 
