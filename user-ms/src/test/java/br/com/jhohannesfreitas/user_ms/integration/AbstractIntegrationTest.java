@@ -34,15 +34,9 @@ public abstract class AbstractIntegrationTest {
             .withUsername("root")
             .withPassword("mysql");
 
-    static final RabbitMQContainer RABBITMQ = new RabbitMQContainer("rabbitmq:3-management");
-
-    static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.0"));
-
     static {
-        // Sobe os três uma única vez; só retorna quando todos estiverem prontos
+        // Sobe uma única vez e retorna quando o serviço estiver pronto
         MYSQL.start();
-        RABBITMQ.start();
-        KAFKA.start();
     }
 
     @DynamicPropertySource
@@ -51,16 +45,6 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
-
-        // RabbitMQ
-        registry.add("spring.rabbitmq.host", RABBITMQ::getHost);
-        registry.add("spring.rabbitmq.port", RABBITMQ::getAmqpPort);
-        registry.add("spring.rabbitmq.username", RABBITMQ::getAdminUsername);
-        registry.add("spring.rabbitmq.password", RABBITMQ::getAdminPassword);
-
-        // Kafka
-        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
-
     }
 
     // Teste simples só para garantir que tudo sobe corretamente
@@ -68,7 +52,7 @@ public abstract class AbstractIntegrationTest {
     @Test
     void contextLoads() {
         System.out.println("Teste funcionou!");
-        // Se chegar aqui, significa que o Spring conseguiu se conectar no banco, rabbit e kafka!
+        // Se chegar aqui, significa que o Spring conseguiu se conectar no banco.
     }
 }
 
