@@ -102,7 +102,7 @@ public class AuthService {
                 );
             }
 
-            // A2F desativada → Gera JWT imediatamente
+            // A2F desativada -> Gera JWT imediatamente
             String token = tokenProvider.gerarToken(authentication);
             LocalDateTime expirationTime = tokenProvider.getExpirationDateToken();
 
@@ -113,7 +113,7 @@ public class AuthService {
                     TipoA2f.DESATIVADA);
 
         } catch (BadCredentialsException e) {
-            throw new RegraNegocioException("Credenciais inválidas", HttpStatus.BAD_REQUEST);
+            throw new RegraNegocioException("Credenciais inválidas", HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -174,7 +174,7 @@ public class AuthService {
         LocalDateTime expirationTime =
                 tokenProvider.getExpirationDateToken();
 
-        return new LoginResponse(token, expirationTime, false, null);
+        return new LoginResponse(token, expirationTime, false, usuario.getTipoA2f());
     }
 
     public TotpActivationResponse iniciarAtivacaoTotp(Long usuarioId) {
