@@ -41,8 +41,6 @@ public class AuthController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Usuário registrado com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
             @ApiResponse(responseCode = "409", description = "Já existe um usuário cadastrado com este e-mail")
     })
     @PostMapping("/registrar")
@@ -61,15 +59,13 @@ public class AuthController {
                 """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Usuário registrado com sucesso"),
+            @ApiResponse(responseCode = "200", description = "Login realizado com sucesso"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
-            @ApiResponse(responseCode = "409", description = "Já existe um usuário cadastrado com este e-mail")
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.login(loginRequest));
+        return ResponseEntity.status(HttpStatus.OK).body(authService.login(loginRequest));
     }
 
     @Operation(
@@ -83,10 +79,9 @@ public class AuthController {
                 """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Usuário registrado com sucesso"),
+            @ApiResponse(responseCode = "200", description = "Verificação bem-sucedida"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @PostMapping("/2fa/verify")
     public ResponseEntity<LoginResponse> verificarA2f(@RequestBody @Valid CodigoA2fRequest codigoA2fRequest) {
@@ -107,14 +102,12 @@ public class AuthController {
                 """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Usuário registrado com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado"),
+            @ApiResponse(responseCode = "200", description = "Inicialização bem-sucedida"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("isAuthenticated()")
-    @PostMapping("2fa/totp/setup")
+    @PostMapping("/2fa/totp/setup")
     public ResponseEntity<TotpActivationResponse> iniciarTotp(Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         TotpActivationResponse response = authService.iniciarAtivacaoTotp(usuario.getId());
@@ -134,7 +127,7 @@ public class AuthController {
                 """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Usuário registrado com sucesso"),
+            @ApiResponse(responseCode = "204", description = "Confirmação sem corpo"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "403", description = "Acesso negado"),
@@ -142,8 +135,7 @@ public class AuthController {
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/2fa/totp/confirm")
-    public ResponseEntity<Void> confirmarTotp(@RequestBody TotpConfirmRequest totpConfirmRequest, Authentication authentication) {
-        System.out.println("AUTHENTICATION: " + authentication);
+    public ResponseEntity<Void> confirmarTotp(@RequestBody @Valid TotpConfirmRequest totpConfirmRequest, Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         authService.confirmarAtivacaoTotp(usuario.getId(), totpConfirmRequest.codigo());
 
@@ -160,7 +152,7 @@ public class AuthController {
                 """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Usuário registrado com sucesso"),
+            @ApiResponse(responseCode = "204", description = "Logout sem corpo"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "403", description = "Acesso negado"),
