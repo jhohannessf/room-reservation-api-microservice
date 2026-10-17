@@ -221,7 +221,6 @@ class UsuarioControllerTest {
                 "teste@email.com",
                 "senha123"
         );
-        UsuarioResponse usuarioResponse = createUsuarioResponse();
 
         // ACT + ASSERT
         mockMvc.perform(post("/api/v1/usuarios")
