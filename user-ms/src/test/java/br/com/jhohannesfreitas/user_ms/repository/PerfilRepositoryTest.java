@@ -17,11 +17,6 @@ class PerfilRepositoryTest extends AbstractIntegrationTest {
     @Autowired
     private PerfilRepository perfilRepository;
 
-    @AfterEach
-    void tearDown() {
-        perfilRepository.deleteAll();
-    }
-
     @Test
     @DisplayName("Deveria encontrar perfil pelo nome")
     void findByPerfilNome() {

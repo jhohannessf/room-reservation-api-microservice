@@ -54,7 +54,10 @@ class UsuarioServiceTest {
     
     @BeforeEach
     void setUp() {
-        usuarioRequest = new UsuarioRequest("Usuario Teste", "teste@teste.com", "teste@123");
+        usuarioRequest = new UsuarioRequest(
+                "Usuario Teste",
+                "teste@teste.com",
+                "teste@123");
     }
 
     // Sugestão de nome para testes: deveria[Comportamento]Quando[Cenário]
