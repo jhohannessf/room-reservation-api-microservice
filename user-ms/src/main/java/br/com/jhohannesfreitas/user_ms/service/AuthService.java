@@ -241,7 +241,7 @@ public class AuthService {
                 )
                 .orElseThrow(() ->
                         new RegraNegocioException(
-                                "Código inválido.",
+                                "Código de A2F por e-mail inválido.",
                                 HttpStatus.UNAUTHORIZED
                         ));
 

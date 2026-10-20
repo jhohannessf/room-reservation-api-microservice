@@ -18,7 +18,7 @@ public class CodigoA2fService {
 
     public CodigoA2f gerarCodigo(Long usuarioId) {
 
-        String codigo = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1000000));
+         String codigo = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1000000));
 
         LocalDateTime expiracao = LocalDateTime.now().plusMinutes(5);
 

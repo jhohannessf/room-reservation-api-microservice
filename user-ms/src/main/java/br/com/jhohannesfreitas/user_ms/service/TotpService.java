@@ -32,7 +32,7 @@ public class TotpService {
         );
     }
 
-    public  boolean validarCodigo(String secret, String codigo) {
+    public boolean validarCodigo(String secret, String codigo) {
 
         try {
             int codigoNumerico = Integer.parseInt(codigo);
