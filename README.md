@@ -6,6 +6,7 @@ Evolução do projeto [room-reservation-api](https://github.com/jhohannessf/room
 
 ## Sumário
 
+- [Sobre o projeto](#sobre-o-projeto)
 - [Arquitetura](#arquitetura)
 - [Stack técnica](#stack-técnica)
 - [Estrutura do repositório](#estrutura-do-repositório)
@@ -18,6 +19,13 @@ Evolução do projeto [room-reservation-api](https://github.com/jhohannessf/room
 - [Modelagem de dados](#modelagem-de-dados)
 - [Como rodar o projeto](#como-rodar-o-projeto)
 - [Roadmap](#roadmap)
+
+## Sobre o projeto
+
+- **Continuação do monólito:** este repositório evolui o [room-reservation-api](https://github.com/jhohannessf/room-reservation-api), construído antes como aplicação única, para uma arquitetura de microsserviços.
+- **Desafio 2 da Alura:** o projeto também foi desenvolvido como o **Desafio 2 da Alura**.
+- **Projeto de estudo e portfólio:** para um domínio tão pequeno, um monólito bastaria. A arquitetura distribuída foi escolhida de propósito, para praticar descoberta de serviços, configuração centralizada, resiliência e mensageria.
+- **Uso de IA (transparência):** o autor usou um chat de IA como apoio durante o desenvolvimento: para tirar dúvidas, na construção do projeto e na montagem deste `README.md`.
 
 ## Arquitetura
 
@@ -130,7 +138,7 @@ room-reservation-api-microservice/
 │   └── Dockerfile
 ├── user-ms/                       # autenticação, usuários, perfis, 2FA
 │   ├── Dockerfile
-│   └── src/test/                  # UsuarioServiceTest, UsuarioControllerTest, AuthControllerTest, UsuarioMapperTest, UsuarioRepositoryTest, CodigoA2fRepositoryTest, PerfilRepositoryTest, TokenProviderTest, JwtAuthenticationFilterTest, integration/AbstractIntegrationTest
+│   └── src/test/                  # UsuarioServiceTest, AuthServiceTest, TotpServiceTest, CodigoA2fServiceTest, EmailServiceTest, UserDetailsServiceImplTest, UsuarioControllerTest, AuthControllerTest, UsuarioMapperTest, UsuarioRepositoryTest, CodigoA2fRepositoryTest, PerfilRepositoryTest, TokenProviderTest, JwtAuthenticationFilterTest, integration/AbstractIntegrationTest
 ├── room-ms/                       # salas — consumidor Kafka/RabbitMQ
 │   ├── Dockerfile
 │   ├── src/main/java/.../messaging/
@@ -322,22 +330,27 @@ Todas as rotas abaixo passam pelo `gateway-ms` (porta `8080`), prefixadas pelo n
 
 ## Testes
 
-O projeto soma **309 métodos de teste** em três camadas — **135 unitários** (JUnit 5 e Mockito, sem Spring), **115 de camada web** (MockMvc) e **59 de integração** (Testcontainers) — mais 3 testes de carregamento de contexto nos serviços de infraestrutura (`server-ms`, `config-server-ms` e `gateway-ms`). A contagem considera os métodos de cada classe concreta, sem multiplicar o `contextLoads` herdado de `AbstractIntegrationTest`. Um `@ParameterizedTest` conta como um método, mesmo executando um caso para cada linha de `@CsvSource` ou `@ValueSource`.
+O projeto soma **340 métodos de teste** em três camadas — **166 unitários** (JUnit 5 e Mockito, sem Spring), **115 de camada web** (MockMvc) e **59 de integração** (Testcontainers) — mais 3 testes de carregamento de contexto nos serviços de infraestrutura (`server-ms`, `config-server-ms` e `gateway-ms`). A contagem considera os métodos de cada classe concreta, sem multiplicar o `contextLoads` herdado de `AbstractIntegrationTest`. Um `@ParameterizedTest` conta como um método, mesmo executando um caso para cada linha de `@CsvSource` ou `@ValueSource`.
 
 | Serviço | Unitários | Camada web | Integração | Total |
 |---|---|---|---|---|
-| `user-ms` | 41 | 59 | 14 | 114 |
+| `user-ms` | 72 | 59 | 14 | 145 |
 | `room-ms` | 31 | 28 | 11 | 70 |
 | `booking-ms` | 63 | 28 | 34 | 125 |
-| **Total** | **135** | **115** | **59** | **309** |
+| **Total** | **166** | **115** | **59** | **340** |
 
 ### Testes unitários
 
-As camadas de serviço e de mapeamento dos três serviços de negócio, o cliente HTTP do `booking-ms` (`FeignErrorDecoder` e `SalaClientFallback`) e a infraestrutura de JWT (`TokenProvider` e `JwtAuthenticationFilter`) dos três serviços têm testes unitários com **JUnit 5**, **Mockito** (`MockitoExtension`, `BDDMockito` com `given/then`, `ArgumentCaptor`) e **AssertJ**, com nomes descritivos via `@DisplayName`:
+As camadas de serviço e de mapeamento dos três serviços de negócio, o cliente HTTP do `booking-ms` (`FeignErrorDecoder` e `SalaClientFallback`) e a infraestrutura de JWT (`TokenProvider` e `JwtAuthenticationFilter`) dos três serviços, além dos componentes de autenticação do `user-ms` (`AuthService`, `TotpService`, `CodigoA2fService`, `EmailService` e `UserDetailsServiceImpl`), têm testes unitários com **JUnit 5**, **Mockito** (`MockitoExtension`, `BDDMockito` com `given/then`, `ArgumentCaptor`) e **AssertJ**, com nomes descritivos via `@DisplayName`:
 
 | Serviço | Classe de teste | Nº de testes | O que cobre |
 |---|---|---|---|
 | `user-ms` | `UsuarioServiceTest` | 22 | Listagem (simples e paginada), busca por id, cadastro com e-mail duplicado, atualização, exclusão, adicionar/remover perfil e ativação da 2FA |
+| `user-ms` | `AuthServiceTest` | 20 | Registro (senha codificada antes de persistir, perfil `ESTUDANTE`, e-mail duplicado); login sem 2FA (com token), com 2FA por e-mail e por aplicativo autenticador (sem token) e com credenciais inválidas; `verificarA2f` por e-mail e por TOTP com código válido e as falhas (usuário inexistente, 2FA não ativa, tipo inválido, código inválido ou expirado); início e confirmação da ativação do TOTP (sucesso, código inválido e usuário inexistente) |
+| `user-ms` | `TotpServiceTest` | 5 | Geração das credenciais, URL do QR Code, código válido, código inválido e código não numérico |
+| `user-ms` | `CodigoA2fServiceTest` | 2 | Geração do código de e-mail para o usuário e expiração cinco minutos depois |
+| `user-ms` | `EmailServiceTest` | 2 | Envio do e-mail com o código A2F (`JavaMailSender` mockado) e propagação da exceção quando o envio falha |
+| `user-ms` | `UserDetailsServiceImplTest` | 2 | Carrega o usuário pelo e-mail e lança exceção quando ele não existe |
 | `room-ms` | `SalaServiceTest` | 15 | Listagem e paginação, busca por id, cadastro e atualização com número de sala duplicado, exclusão e alteração de status |
 | `booking-ms` | `ReservaServiceTest` | 42 | Listagem e busca, cadastro/atualização/exclusão com todas as regras de negócio (usuário e sala inexistentes, data no passado, hora inicial ≥ final, horário de funcionamento, conflito de horário, capacidade da sala, apenas o dono altera ou remove) e o fluxo de integração com `room-ms` (reserva `ATIVA` x `ATIVA_SEM_INTEGRACAO`, job de reconciliação que segue processando as demais reservas quando uma falha, confirmação manual e alteração de status) |
 | `booking-ms` | `FeignErrorDecoderTest` | 4 | Tradução dos erros do `room-ms` em `RegraNegocioException` com o mesmo status e a mesma mensagem (`400`, `403`, `404` e `409`); queda no decoder padrão do Feign (`FeignException`) quando o corpo não é um `ErrorResponse` (HTML com `502`) ou não existe (`503`); status HTTP desconhecido (`599`) vira `500` preservando a mensagem |
@@ -373,14 +386,14 @@ cd user-ms && ./mvnw test -Dtest='UsuarioControllerTest,AuthControllerTest'
 
 | Serviço | Unitário | Camada web | Integração (Testcontainers) |
 |---|---|---|---|
-| `user-ms` | ✅ `UsuarioService`, mapper, `TokenProvider`, `JwtAuthenticationFilter` · ❌ `AuthService`, `CodigoA2fService`, `TotpService`, `EmailService`, `UserDetailsServiceImpl`, `OAuth2LoginSuccessHandler` | ✅ `UsuarioController` (todos os endpoints) e `AuthController` (todos, exceto `logout`) | 🟡 `UsuarioRepository`, `CodigoA2fRepository` e `PerfilRepository` ✅ · migrations do Flyway e fluxo de autenticação ❌ |
+| `user-ms` | ✅ `UsuarioService`, `AuthService`, `CodigoA2fService`, `TotpService`, `EmailService`, `UserDetailsServiceImpl`, mapper, `TokenProvider`, `JwtAuthenticationFilter` · ❌ `OAuth2LoginSuccessHandler` | ✅ `UsuarioController` (todos os endpoints) e `AuthController` (todos, exceto `logout`) | 🟡 `UsuarioRepository`, `CodigoA2fRepository` e `PerfilRepository` ✅ · migrations do Flyway e fluxo de autenticação ❌ |
 | `room-ms` | ✅ `SalaService`, mapper, `TokenProvider`, `JwtAuthenticationFilter` | ✅ todos os endpoints de `SalaController` | ✅ repositório, listeners Kafka/RabbitMQ e DLQ |
 | `booking-ms` | ✅ `ReservaService`, mapper, `FeignErrorDecoder`, `SalaClientFallback`, `TokenProvider`, `JwtAuthenticationFilter` | ✅ todos os endpoints de `ReservaController`, exceto `GET /porta` (de propósito: existe só para demonstrar o *load balancing*) | ✅ repositório, mensageria, conflito de horário e Circuit Breaker |
 | `gateway-ms`, `server-ms`, `config-server-ms` | — | — | apenas o teste de carregamento de contexto |
 
 > **O que ainda falta testar**, por prioridade:
-> - **Alta — regras do fluxo de autenticação do `user-ms` (o maior buraco restante):** o `AuthController` já tem teste de camada web, mas com o `AuthService` mockado. Falta testar o próprio `AuthService`: registro; login sem 2FA, com 2FA por e-mail e por TOTP; `verificarA2f` com código inválido, expirado ou já utilizado; ativação do TOTP em duas etapas.
-> - **Média — componentes de apoio da autenticação:** `CodigoA2fService`, `TotpService`, `EmailService` (com `JavaMailSender` mockado), `UserDetailsServiceImpl` e `OAuth2LoginSuccessHandler` (usuário novo x existente, e-mail primário do GitHub, provedor não suportado).
+> - **Alta — `OAuth2LoginSuccessHandler` (`user-ms`):** é o único caminho de autenticação sem nenhum teste. Falta cobrir usuário novo x existente, e-mail primário do GitHub (buscado via API), provedor não suportado e a emissão do mesmo JWT do login local.
+> - **Média — uso único do código A2F por e-mail:** o `AuthServiceTest` já cobre código válido, inválido e expirado, mas o teste de sucesso não verifica que o código é marcado como `utilizado` e salvo (`setUtilizado(true)` + `save`). Vale reforçar essa asserção, porque é a regra de "uso único".
 > - **Média — integração do `user-ms`:** a base já está pronta (`application.properties` de teste próprio, só MySQL). Falta cobrir as migrations do Flyway e o fluxo cadastro → login → 2FA → JWT contra MySQL real.
 > - **Média — `GlobalExceptionHandler`:** `HttpMessageNotReadableException` já é testada em `booking-ms` e `room-ms`; o `user-ms` já responde com a mensagem genérica, mas sem teste. Nos três serviços, faltam `MethodArgumentTypeMismatchException` (ex.: `GET /{id}` com texto no lugar do número) e a exceção genérica (`500`).
 > - **Média — propagação do JWT via Feign:** o `RequestInterceptor` do `FeingConfig` (cabeçalho `Authorization: Bearer ...` nas chamadas do `booking-ms` ao `room-ms` e ao `user-ms`) não tem teste.
@@ -564,7 +577,7 @@ KAFKA_BOOTSTRAP_SERVERS=       # via Docker Compose já vem fixado como kafka:90
 - [x] `@PreAuthorize("isAuthenticated()")` explícito no `PUT /api/v1/reservas/{id}` de `booking-ms`
 - [ ] Dar uso real ao evento consumido em `room-ms` (Kafka e RabbitMQ) — hoje ambos os listeners só logam a mensagem recebida; próximo passo natural é atualizar um cache/projeção de disponibilidade de sala
 - [x] Testes de camada web (`@WebMvcTest`) do `ReservaController`, com autenticação simulada e regras de dono do recurso
-- [ ] Testes unitários do fluxo de autenticação do `user-ms`: `AuthService` (login, 2FA por e-mail e TOTP), `CodigoA2fService`, `TotpService`
+- [x] Testes unitários do fluxo de autenticação do `user-ms`: `AuthService` (registro, login, 2FA por e-mail e TOTP), `CodigoA2fService` e `TotpService`
 - [x] Testes unitários de JWT: `TokenProvider` (assinatura, expiração, token adulterado) e `JwtAuthenticationFilter` (token válido, expirado, adulterado e sem `Bearer`), nos três serviços
 - [x] `SalaControllerTest` completo (cadastro/atualização/remoção por `ADMINISTRADOR`, alteração de status, `401`, `403`, `400`, `404` e `409`)
 - [x] `UsuarioControllerTest` completo (consultas, cadastro, atualização, remoção, perfis e ativação da 2FA, com `401`, `403`, `400`, `404` e `409` e as regras de `@PreAuthorize`)
@@ -581,14 +594,17 @@ KAFKA_BOOTSTRAP_SERVERS=       # via Docker Compose já vem fixado como kafka:90
 - [x] Handler genérico de `HttpMessageNotReadableException` aplicado também no `user-ms`
 - [ ] Cobrir com teste o handler de `HttpMessageNotReadableException` do `user-ms` (já responde com a mensagem genérica, mas ainda sem teste)
 - [ ] Testes do `GlobalExceptionHandler` nos três serviços para `MethodArgumentTypeMismatchException` e a exceção genérica (`500`), ainda não exercitadas
-- [ ] Testes de `EmailService` (com `JavaMailSender` mockado) e `UserDetailsServiceImpl` no `user-ms`
+- [x] Testes de `EmailService` (com `JavaMailSender` mockado) e `UserDetailsServiceImpl` no `user-ms`
+- [ ] Reforçar o `AuthServiceTest`: verificar que o código A2F por e-mail é marcado como `utilizado` e salvo após o uso (uso único)
 - [ ] Teste do `RequestInterceptor` do `FeingConfig` (`booking-ms`): propagação do cabeçalho `Authorization: Bearer ...` nas chamadas Feign
 - [ ] Testes de rotas do `gateway-ms` (`StripPrefix` e `X-Forwarded-Prefix`) e de leitura do `config-repo` pelo `config-server-ms`
 - [ ] Relatório de cobertura com JaCoCo
+- [ ] Proteger o conflito de horário contra requisições simultâneas (hoje é uma consulta antes do insert, sem lock nem constraint no banco)
+- [ ] Publicar o evento Kafka de forma consistente com a transação (padrão Outbox): hoje o evento é publicado dentro do `@Transactional`
 - [ ] Healthchecks via Spring Boot Actuator em todos os serviços de negócio, para o `docker-compose.yml` poder usar `service_healthy` em vez de `service_started` também entre os microsserviços (hoje o Actuator existe só no `booking-ms`, e `service_healthy` só é usado para RabbitMQ e Kafka)
 - [ ] JWT validado no próprio `gateway-ms`, para rotas públicas x autenticadas serem decididas antes de chegar aos serviços de negócio
 - [ ] Migrar o Config Server para modo Git-backed, se for necessário editar configuração sem rebuildar o serviço
 
 ---
 
-Projeto com fins de estudo e portfólio, evoluindo o [room-reservation-api](https://github.com/jhohannessf/room-reservation-api) original de monolito para uma arquitetura de microsserviços com service discovery, configuração centralizada, API Gateway, resiliência e mensageria assíncrona.
+Projeto com fins de estudo e portfólio, desenvolvido como continuação do monólito e como Desafio 2 da Alura (com apoio de IA, conforme descrito em [Sobre o projeto](#sobre-o-projeto)), evoluindo o [room-reservation-api](https://github.com/jhohannessf/room-reservation-api) original de monolito para uma arquitetura de microsserviços com service discovery, configuração centralizada, API Gateway, resiliência e mensageria assíncrona.
